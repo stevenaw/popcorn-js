@@ -156,9 +156,13 @@
     // Checks for a url of an image to overlay onto the video
     if (this.params.overlay) {
       this.image = document.createElement('img');
-      this.image.setAttribute('src', this.params.overlay);
-      this.image.setAttribute('style', 'display:none');
-      VideoManager.overlayDiv.appendChild(this.image);
+      var that = this;
+      $('<a href="' + (that.params.overlaylink || "#") + '"></a>')
+        .attr("target", that.params.overlaylink ? "_blank" : "")
+        .append($(that.image)
+        .attr("src",that.params.overlay)
+        .attr("style", "display:none")).appendTo(VideoManager.overlayDiv);
+      
       this.displayOverlay = function() {
         this.image.setAttribute('style', 'display:inline');
       };
@@ -259,8 +263,12 @@
       ]
     };
     var newsShow = new google.elements.NewsShow(content, options);
+
     this.onIn = function() {
       this.target.setAttribute('style', 'display:inline');
+      $("a").each(function() {
+        this.setAttribute('target', '_blank');
+      });
     };
     this.onOut = function() {
       this.target.setAttribute('style', 'display:none');
@@ -420,7 +428,7 @@
       if (this.params.src) {
         var link = document.createElement("a");
         link.setAttribute("href", this.params.src);
-        link.setAttribute("target", "_new");
+        link.setAttribute("target", "_blank");
         link.appendChild(document.createTextNode(this.params.description||this.params.src));
         document.getElementById('mapinfo').appendChild(link);
       }
@@ -507,11 +515,12 @@
         border  = this.params.border || "0px";
 
     // This uses jquery
-    $.getJSON("http://api.flickr.com/services/feeds/photos_public.gne?id=" + this.params.userid + "@N00&lang=en-us&format=json&jsoncallback=?", function(data){
+    $.getJSON("http://api.flickr.com/services/feeds/photos_public.gne?id=" + this.params.userid + "&lang=en-us&format=json&jsoncallback=?", function(data){
       $.each(data.items, function(i, item) {
         if (i < count) {
           var link = document.createElement('a');
           link.setAttribute('href', item.link);
+          link.setAttribute("target", "_blank");
           var image = document.createElement('img');
           image.setAttribute('src', item.media.m);
           image.setAttribute('height', height);
@@ -555,6 +564,7 @@
         //make a link to the document
         var link = document.createElement('a');
         link.setAttribute('href', src);
+        link.setAttribute('target', '_blank');
         var p = document.createElement('p');
         p.innerHTML = data.parse.displaytitle;
         link.appendChild(p);
@@ -611,7 +621,7 @@
     var image = "";
 
     if ( this.params.nameofworkurl ) {
-      attribution += "<a href='" + this.params.nameofworkurl + "'>";
+      attribution += "<a href='" + this.params.nameofworkurl + "' target='_blank'>";
     }
     if ( this.params.nameofwork ) {
       attribution += this.params.nameofwork;
@@ -620,7 +630,7 @@
       attribution += "</a>";
     }
     if ( this.params.copyrightholderurl ) {
-      attribution += "<a href='" + this.params.copyrightholderurl + "'>";
+      attribution += "<a href='" + this.params.copyrightholderurl + "' target='_blank'>";
     }
     if ( this.params.copyrightholder ) {
       attribution += ", " + this.params.copyrightholder;
@@ -649,7 +659,7 @@
       }
     }  
     if ( this.params.licenseurl ) {
-      attribution += ", <a href='" + this.params.licenseurl + "'>License URL</a>";
+      attribution += ", <a href='" + this.params.licenseurl + "' target='_blank'>License URL</a>";
     }
     //if the user did not specify any parameters just pull the text from the tag
     if( attribution === "" ) {
