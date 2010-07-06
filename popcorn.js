@@ -45,6 +45,13 @@
         commandObject = manager.commandObjects[i];
         if (commandObject.running && (commandObject.params["in"] > t || commandObject.params["out"] < t)) {
           commandObject.running = false;
+
+          
+          if (VideoCommand.active[commandObject.params.target] <= 0 || --VideoCommand.active[commandObject.params.target] <= 0) {
+            $("#" + commandObject.params.target + " .inactive").fadeIn(500);
+          }
+
+          
           commandObject.onOut();
           commandObject.removeOverlay();
         }
@@ -59,7 +66,14 @@
         }
         if (!commandObject.running && commandObject.params["in"] < t && commandObject.params["out"] > t) {
           commandObject.running = true;
-          if (typeof commandObject.flash=="undefined") {
+          
+          $("#" + commandObject.params.target + " .inactive").hide();
+          VideoCommand.active[commandObject.params.target]++;
+
+          if (commandObject.params.target) {
+            $("#" + commandObject.params.target + " .overlay").show().fadeOut(500);
+          }
+          if (typeof commandObject.flash == "undefined") {
              var section = $(commandObject.target).parents('section');
              if (!section.hasClass('hover')) {
                 section.addClass('hover');    
@@ -136,7 +150,7 @@
         }
       }
     }
-    
+
     // Checkes for a resourceid and gets all the attributes from that resource
     if (this.params.resourceid) {
       for (var attributeName in this.videoManager.manifestObjects[this.params.resourceid]) {
@@ -170,7 +184,12 @@
         this.image.setAttribute('style', 'display:none');
       };
     }
+
+    if (!VideoCommand.active[this.params.target]) {
+      VideoCommand.active[this.params.target] = 0;
+    }
   };
+  VideoCommand.active = {};
   VideoCommand.count = 0;
 
   ////////////////////////////////////////////////////////////////////////////
@@ -516,6 +535,7 @@
 
     // This uses jquery
     $.getJSON("http://api.flickr.com/services/feeds/photos_public.gne?id=" + this.params.userid + "&lang=en-us&format=json&jsoncallback=?", function(data){
+      target.innerHTML = "<p style='padding:" + padding + ";'>" + data.title + "<p/>";
       $.each(data.items, function(i, item) {
         if (i < count) {
           var link = document.createElement('a');
