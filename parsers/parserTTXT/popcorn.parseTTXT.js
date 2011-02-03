@@ -1,4 +1,4 @@
-// PARSER: 0.1 TTXT
+// PARSER: 0.3 TTXT
 
 (function (Popcorn) {
 
@@ -21,19 +21,20 @@
           title: "",
           remote: "",
           data: []
-        };
+        },
+        cmds = [],
+        lastStart = Number.MAX_VALUE;
 
     // Simple function to convert HH:MM:SS.MMM to SS.MMM
     // Assume valid, returns 0 on error
-    var toSeconds = function(t_in) {
-      var t = t_in.split(":");
-      var time = 0;
+    var toSeconds = function( t_in ) {
+      var t = t_in.split( ":" );
       
       try {        
         return parseFloat(t[0], 10)*60*60 + parseFloat(t[1], 10)*60 + parseFloat(t[2], 10);
-      } catch (e) { time = 0; }
-      
-      return time;
+      } catch (e) {
+        return 0;
+      }
     };
 
     // creates an object of all atrributes keyed by name
@@ -42,23 +43,28 @@
       track[name] = attributes;
       return track;
     };
+    
+    // Null check on required attributes
+    if ( !data.xml || !data.xml.documentElement ) {
+      return returnData;
+    }
 
     // this is where things actually start
-    var node = data.xml.lastChild.lastChild; // Last Child of TextStreamHeader
-    var lastStart = Number.MAX_VALUE;
-    var cmds = [];
+    // Last Child of TextStreamHeader
+    var node = data.xml.documentElement.lastChild;
     
     // Work backwards through DOM, processing TextSample nodes
-    while (node) {
-      if ( node.nodeType === 1 && node.nodeName === "TextSample") {
+    while ( node ) {
+      if ( node.nodeType === 1 && node.nodeName === "TextSample" ) {
         var sub = {};
-        sub.start = toSeconds(node.getAttribute('sampleTime'));
-        sub.text = node.getAttribute('text');
+        sub.start = toSeconds( node.getAttribute( 'sampleTime' ) );
+        sub.text = node.getAttribute( 'text' );
       
-        if (sub.text) { // Only process if text to display
+        // Only process if text to display
+        if ( sub.text ) { 
           // Infer end time from prior element, ms accuracy
           sub.end = lastStart - 0.001;
-          cmds.push( createTrack("subtitle", sub) );
+          cmds.push( createTrack( "subtitle", sub ) );
         }
         lastStart = sub.start;
       }
