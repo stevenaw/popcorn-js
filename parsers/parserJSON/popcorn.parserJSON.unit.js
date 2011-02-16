@@ -8,7 +8,14 @@ test("Popcorn 0.3 JSON Parser Plugin", function () {
       trackData,
       trackEvents, 
       interval,
-      poppercorn = Popcorn( "#video" );
+      dataSrc = document.getElementById( "video" ).getAttribute( "data-timeline-sources" ),
+      poppercorn = Popcorn( "#video" ),
+      childContainers = {
+        "#iframe-container": 2,
+        "#map-container": 1,
+        "#footnote-container": 2
+      },
+      childLength = 3;
       
   function plus() {
     if ( ++count === expects ) {
@@ -18,7 +25,13 @@ test("Popcorn 0.3 JSON Parser Plugin", function () {
     }
   }
   
-  poppercorn.parseJSON("data/data.json");
+  // DOMContentLoaded event within popcorn has already parsed data-timeline-sources
+  // Clear modified DOM children to run tests
+  Popcorn.forEach( childContainers, function( item, i ) {
+    $(i).empty();
+  });
+  
+  poppercorn.parseJSON( dataSrc );
   
   expect(expects);
   
@@ -29,7 +42,7 @@ test("Popcorn 0.3 JSON Parser Plugin", function () {
   trackEvents = trackData.trackEvents;
 
   Popcorn.xhr({
-    url: 'data/data.json', 
+    url: dataSrc, 
     success: function( data ) {
 
       var idx = 0;
@@ -52,19 +65,16 @@ test("Popcorn 0.3 JSON Parser Plugin", function () {
   
 
     if ( Math.round( this.currentTime()) === 3 && !finished ) {
-      
       finished = true;
       
       equals( trackEvents.byStart.length,  numLoadingEvents + 2 , "trackEvents.byStart.length === (5 loaded, 2 padding) " );
       plus();  
 
-
-      equals( $("#iframe-container").children().length, 2, '$("#iframe-container").children().length' )
-      plus();
-      equals( $("#map-container").children().length, 1, '$("#map-container").children().length'  );
-      plus();
-      equals( $("#footnote-container").children().length, 2, '$("#footnote-container").children().length'  );
-      plus();
+      // Count children of affeected containers
+      Popcorn.forEach( childContainers, function( item, i ) {
+        equals( $(i).children().length, item, '$("'+i+'").children().length' )
+        plus();
+      });
 
       this.pause();
 
