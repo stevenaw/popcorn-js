@@ -84,29 +84,31 @@
           uri += "tags="+tags+"&";
         }
 
-        uri += "lang=en-us&format=json&jsoncallback=?";
-        
-        $.getJSON( uri, function( data ) {
-          options.container.innerHTML = "<p style='padding:" + padding + ";'>" + data.title + "<p/>";
-          
-          Popcorn.forEach( data.items, function ( item, i ) {
-            if ( i < count ) {
-              var link = document.createElement('a');
-              link.setAttribute( 'href', item.link );
-              link.setAttribute( "target", "_blank" );
-              var image = document.createElement( 'img' );
-              image.setAttribute( 'src', item.media.m );
-              image.setAttribute( 'height', height );
-              image.setAttribute( 'width', width );
-              image.setAttribute( 'style', 'border:' + border + ';padding:' + padding );
-              link.appendChild( image );
-              
-              options.container.appendChild( link );
-            } else {
-              return false;
-            }
-          });
-        });
+        uri += "lang=en-us&format=json&jsoncallback=flickr";
+        Popcorn.xhr.getJSONP(
+          uri,
+          function( data ) {
+            options.container.innerHTML = "<p style='padding:" + padding + ";'>" + data.title + "<p/>";
+                    
+            Popcorn.forEach( data.items, function ( item, i ) {
+              if ( i < count ) {
+                var link = document.createElement('a');
+                link.setAttribute( 'href', item.link );
+                link.setAttribute( "target", "_blank" );
+                var image = document.createElement( 'img' );
+                image.setAttribute( 'src', item.media.m );
+                image.setAttribute( 'height', height );
+                image.setAttribute( 'width', width );
+                image.setAttribute( 'style', 'border:' + border + ';padding:' + padding );
+                link.appendChild( image );
+
+                options.container.appendChild( link );
+              } else {
+                return false;
+              }
+            });
+          }
+        );
       },
       /**
        * @member Flickr 
