@@ -90,6 +90,7 @@
       this.data = {
         history: [],
         events: {},
+        sources: {},
         trackEvents: {
           byStart: [{
             start: -1,
@@ -1057,7 +1058,8 @@
 
       var video = videos[ key ],
           hasDataSources = false,
-          dataSources, dataTemp, dataType, parserFn, popcornVideo;
+          dataSources, dataTemp, dataType, parserFn, popcornVideo,
+          tmpImg = new Image();
 
       //  Ensure that the DOM has an id
       if ( !video.id ) {
@@ -1080,6 +1082,11 @@
             dataTemp = source.split( ":" );
 
             dataType = dataTemp[0];
+            
+            // Get the absolute path            
+            tmpImg.src = source;
+            
+            source = tmpImg.src;
 
             if ( dataTemp.length === 1 ) {
 
@@ -1094,12 +1101,12 @@
             parserFn = "parse" + dataType;
 
             //  If the video has data sources and the correct parser is registered, continue to load
-            if ( dataSources && Popcorn.parsers[ dataType ] ) {
+            if ( dataSources && Popcorn.parsers[ dataType ] && !popcornVideo.data.sources[ source ] ) {
 
               //  Set up the video and load in the datasources
               popcornVideo[ parserFn ]( source );
-
-
+              
+              popcornVideo.data.sources[ source ] = 1;
             }
           });
 
