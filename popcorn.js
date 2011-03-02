@@ -793,80 +793,95 @@
   // An interface for extending Popcorn
   // with parser functionality
   Popcorn.parser = function( name, type, definition ) {
-
-    if ( Popcorn.protect.natives.indexOf( name.toLowerCase() ) >= 0 ) {
-      Popcorn.error("'" + name + "' is a protected function name");
-      return;
-    }
-
-    if ( typeof definition !== "function" ) {
-      return;
-    }
-
-    // Provides some sugar, but ultimately extends
-    // the definition into Popcorn.p
-    
-    var natives = Popcorn.events.all,
-        parseFn,
-        parser = {};
-    
-    parseFn = function ( filename ) {
+      // Use this function to resolve relative and absolute paths for file names
+      // Helps ensure we only parse the same data once
+      function getAbsPath( src ) {
+        if ( !src) {
+          return;
+        }
         
-      if ( !filename ) {
-        return this;
+        var img = new Image();
+        img.src = src;
+        return img.src;
       }
 
-      var that = this;
+      if ( Popcorn.protect.natives.indexOf( name.toLowerCase() ) >= 0 ) {
+        Popcorn.error("'" + name + "' is a protected function name");
+        return;
+      }
 
-      Popcorn.xhr({
-        url: filename,
-        success: function( data ) {
+      if ( typeof definition !== "function" ) {
+        return;
+      }
 
-          var tracksObject = definition( data ), 
-              tracksData, 
-              tracksDataLen, 
-              tracksDef, 
-              idx = 0;
-              
-          tracksData = tracksObject.data || [];
-          tracksDataLen = tracksData.length;
-          tracksDef = null;
-          
-          //  If no tracks to process, return immediately
-          if ( !tracksDataLen ) {
-            return;
-          }
-              
-          //  Create tracks out of parsed object
-          for ( ; idx < tracksDataLen; idx++ ) {
+      // Provides some sugar, but ultimately extends
+      // the definition into Popcorn.p
+      
+      var natives = Popcorn.events.all,
+          parseFn,
+          parser = {};
+      
+      parseFn = function ( filename ) {
+        filename = getAbsPath( filename );
+        
+        // We only want to parse the same file once
+        if ( !filename || this.data.sources[filename] ) {
+          return this;
+        }
+        
+        var that = this;
+        
+        this.data.sources[ filename ] = 1;
+
+        Popcorn.xhr({
+          url: filename,
+          success: function( data ) {
+
+            var tracksObject = definition( data ), 
+                tracksData, 
+                tracksDataLen, 
+                tracksDef, 
+                idx = 0;
+                
+            tracksData = tracksObject.data || [];
+            tracksDataLen = tracksData.length;
+            tracksDef = null;
             
-            tracksDef = tracksData[ idx ];
-            
-            for ( var key in tracksDef ) {
-
-              if ( hasOwn.call( tracksDef, key ) && !!that[ key ] ) {
+            //  If no tracks to process, return immediately
+            if ( !tracksDataLen ) {
+              return;
+            }
+                
+            //  Create tracks out of parsed object
+            for ( ; idx < tracksDataLen; idx++ ) {
               
-                that[ key ]( tracksDef[ key ] );
+              tracksDef = tracksData[ idx ];
+              
+              for ( var key in tracksDef ) {
+
+                if ( hasOwn.call( tracksDef, key ) && !!that[ key ] ) {
+                
+                  that[ key ]( tracksDef[ key ] );
+                }
               }
             }
           }
-        }
-      });
+        });
 
-      return this;
-    };
+        return this;
+      };
 
-    // Assign new named definition
-    parser[ name ] = parseFn;
-    
-    // Extend Popcorn.p with new named definition
-    Popcorn.extend( Popcorn.p, parser );
-    
-    // keys the function name by filetype extension
-    Popcorn.parsers[ type ] = name;
+      // Assign new named definition
+      parser[ name ] = parseFn;
+      
+      // Extend Popcorn.p with new named definition
+      Popcorn.extend( Popcorn.p, parser );
+      
+      // keys the function name by filetype extension
+      Popcorn.parsers[ type ] = name;
 
-    return parser;
-  };
+      return parser;
+    }
 
 
   //  Cache references to reused RegExps
@@ -1058,8 +1073,7 @@
 
       var video = videos[ key ],
           hasDataSources = false,
-          dataSources, dataTemp, dataType, parserFn, popcornVideo,
-          tmpImg = new Image();
+          dataSources, dataTemp, dataType, parserFn, popcornVideo;
 
       //  Ensure that the DOM has an id
       if ( !video.id ) {
@@ -1082,11 +1096,6 @@
             dataTemp = source.split( ":" );
 
             dataType = dataTemp[0];
-            
-            // Get the absolute path            
-            tmpImg.src = source;
-            
-            source = tmpImg.src;
 
             if ( dataTemp.length === 1 ) {
 
@@ -1101,12 +1110,10 @@
             parserFn = "parse" + dataType;
 
             //  If the video has data sources and the correct parser is registered, continue to load
-            if ( dataSources && Popcorn.parsers[ dataType ] && !popcornVideo.data.sources[ source ] ) {
+            if ( dataSources && Popcorn.parsers[ dataType ] ) {
 
               //  Set up the video and load in the datasources
               popcornVideo[ parserFn ]( source );
-              
-              popcornVideo.data.sources[ source ] = 1;
             }
           });
 

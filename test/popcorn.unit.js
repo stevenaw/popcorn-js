@@ -1488,8 +1488,9 @@ test("Parsing Functions", function () {
 
 test("Parsing Integrity", function () {
 
-  var expects = 2,
+  var expects = 3,
       count = 0,
+      numParserCalls = 0,
       timeOut = 0,
       interval,
       poppercore = Popcorn( "#video" );
@@ -1508,6 +1509,7 @@ test("Parsing Integrity", function () {
   stop( 10000 );
 
   Popcorn.parser( "parseJSON2" , "json", function( data ){
+    numParserCalls++;
     return data.json;
   });
 
@@ -1523,10 +1525,16 @@ test("Parsing Integrity", function () {
     }
   });
 
+  // Call many times, but should  only be parsed once
+  poppercore.parseJSON2("data/parserData.json");
+  poppercore.parseJSON2("data/parserData.json");
   poppercore.parseJSON2("data/parserData.json");
 
   // interval used to wait for data to be parsed
   interval = setInterval( function() {
+    equals( 1, numParserCalls , "Only ran the parser once.");
+    plus();
+  
     poppercore.currentTime(5).play();
   }, 2000);
 
