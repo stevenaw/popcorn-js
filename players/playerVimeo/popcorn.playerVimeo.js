@@ -1,33 +1,6 @@
 ( function () {
   var undef;
   
-  var extend = (function() {
-    var tmp = {};
-    if ( tmp.__lookupGetter__ && tmp.__lookupSetter__ && tmp.__defineGetter__ ) {
-      // Browsser supports get/set
-      return function (a,b) {
-        for ( var i in b ) {
-          var g = b.__lookupGetter__(i), s = b.__lookupSetter__(i);
-         
-          if ( g || s ) {
-            if ( g ) {
-              a.__defineGetter__(i, g);
-            }
-            if ( s ) {
-              a.__defineSetter__(i, s);
-            }
-          } else {
-            a[i] = b[i];
-          }
-        }
-        return a;
-      }
-    } else {
-      // Browser does not support get/set
-      return Popcorn.extend;
-    }
-  })();
-    
   // base object for DOM-related behaviour like events
   var LikeADOM = function () {
     var evts = {};
@@ -81,25 +54,22 @@
     };
   };
   
-  // So instances can be accessed from the prototype
-  var LikeAVideo = window.LikeAVideo = this.LikeAVideo = {};
-  
   // A constructor, but we need to wrap it to allow for "static" functions
-  LikeAVideo.Vimeo = (function() {
+  Popcorn.VimeoEngine = (function() {
     // Extract the numeric video id from container uri: 'http://player.vimeo.com/video/11127501' or 'http://player.vimeo.com/video/4282282'
-    // Expect id to be a valid 32/64-bit unsigned integer, no more than 10 digits
+    // Expect id to be a valid 32/64-bit unsigned integer
     // Returns string, empty string if could not match
     function extractIdFromUri( uri ) {
-      var matches = uri.match( /^http:\/\/player\.vimeo\.com\/video\/[\d]{1,10}/i );
+      var matches = uri.match( /^http:\/\/player\.vimeo\.com\/video\/[\d]+/i );
       return matches ? matches[0].substr(30) : "";
     };
     
     // Extract the numeric video id from url: 'http://vimeo.com/11127501' or simply 'vimeo.com/4282282'
     // Ignores protocol and subdomain, but one would expecct it to be http://www.vimeo.com/#######
-    // Expect id to be a valid 32/64-bit unsigned integer, no more than 10 digits
+    // Expect id to be a valid 32/64-bit unsigned integer
     // Returns string, empty string if could not match
     function extractIdFromUrl( url ) {
-      var matches = url.match( /vimeo\.com\/[\d]{1,10}/ );
+      var matches = url.match( /vimeo\.com\/[\d]+/ );
       return matches ? matches[0].substr(10) : "";
     };
   
@@ -111,8 +81,6 @@
       
       var swfObj = document.getElementById( containerId ),
           hasLoggeddLoading = false,
-          timerInterval = 0,
-          timePlayStarted = 0,
           vidId = extractIdFromUri( swfObj.src ),
           evtHolder = new LikeADOM();
           
@@ -120,6 +88,8 @@
       swfObj.duration = -1;
       swfObj.readyState = 0;
       swfObj.currentTime = -1;
+      swfObj.volume = 0.5;
+      swfObj.autoplay;
           
       // Hook an event listener for the player event into internal event system
       // Stick to HTML conventions of add event listener and keep lowercase, without prependinng "on"
@@ -129,7 +99,7 @@
         evt = evt.toLowerCase();
         
         // If it's an HTML media event supported by player, map
-        if ( evt === "seeking" ) {
+        if ( evt === "seeked" ) {
           playerEvt = "onSeek";
         } else if ( evt === "timeupdate" ) {
           playerEvt = "onProgress";
@@ -138,7 +108,7 @@
         } else if ( evt === "ended" ) {
           playerEvt = "onFinish";
         } else if ( evt === "play" || evt === "pause" || evt === "load" ) {
-          // Direct mapping, CamelCase the event name as vimeo expects it
+          // Direct mapping, CamelCase the event name as vimeo API expects
           playerEvt = "on"+evt[0].toUpperCase() + evt.substr(1);
         }
         
@@ -150,19 +120,21 @@
         // Do not link for 'timeUpdate', that is done as a chain instead:
         // Vimeo.timeupdate calls 
         if( evt !== "timeupdate" && playerEvt && evtHolder.getEventListeners( evt ).length === 1 ) {
-          swfObj.addEvent( playerEvt, evtHolder["on"+evt] );
+          swfObj.addEvent( playerEvt, function() {
+            evtHolder.dispatchEvent( evt );
+          });
         }
       }
       
-      var retObj = extend(swfObj, {
+      var retObj = Popcorn.extend(swfObj, {
         // Popcorn's extend can't current handle get/set
         
         setLoop: function( val ) {
           var doLoop = val === "loop" ? 1 : 0;
-          swfObj.api('api_setLoop', loop);
+          swfObj.api('api_setLoop', doLoop);
         },
         setVolume: function( val ) {
-          // Normalize value
+          // Normalize value to between 0 and 1
           if ( val < 0 ) {
             val = -val;
           }
@@ -171,8 +143,10 @@
             val %= 1;
           }
           
-          // HTMl video expeccts to be 0.0 -> 1.0, Vimeo expects 0-100
-          swfObj.api('api_setVolume', val*100);
+          // HTML video expeccts to be 0.0 -> 1.0, Vimeo expects 0-100
+          swfObj.volume = val;
+          swfObj.api( "api_setVolume", val*100 );
+          evtHolder.dispatchEvent( "volumechange" );
         },
         play: function() {
           swfObj.api( "api_play" );
@@ -182,6 +156,7 @@
         },
         seek: function ( time ) {
           swfObj.api( "api_seekTo", time );
+          evtHolder.dispatchEvent( "seeked" );
         },
       });
       
@@ -222,6 +197,12 @@
             evtHolder.dispatchEvent( "readystatechange" );
           }
         });
+        
+        if ( swfObj.autoplay ) {
+          swfObj.play();
+        }
+        
+        swfObj.setVolume( swfObj.volume );
       });
     
       return retObj;

@@ -23,40 +23,60 @@
         </style>
         <script src="../../popcorn.js"></script>
         <script type="text/javascript" src="popcorn.playerVimeo.js"></script>
+        <script src="../../plugins/footnote/popcorn.footnote.js"></script>
     </head>
     <body>
         <div>
-            <div>
-                <iframe id="player_1" src="http://player.vimeo.com/video/11127501?js_api=1&js_swf_id=player_1" width="500" height="281" frameborder="0"></iframe>
-                <button class="simple" id="btnPlayPause">Play</button>
-                <button class="seek" id="btnSeek">Seek to 30</button>
-                <button class="loop" id="btnLoop">Toggle Loop</button>
-                <button class="volume" id="btnVolume">Toggle Volume</button>
-                <div>
-                  Current Time (s): <span id="player_time"></span>
-                  <br />Video Duration (s): <span id="player_duration"></span>
-                  <br />Ready State: <span id="player_state"></span>
-                </div>
-                <div id="footnotediv" width="50%" height="50%"> </div>
-            </div>
+          <iframe id="player_1" src="http://player.vimeo.com/video/11127501?js_api=1&js_swf_id=player_1" width="500" height="281" frameborder="0"></iframe>
+          <button class="simple" id="btnPlayPause">Play</button>
+          <button class="seek" id="btnSeek">Seek to 30</button>
+          <button class="loop" id="btnLoop">Toggle Loop</button>
+          <button class="volume" id="btnVolume">Toggle Volume</button>
+          <div>
+            Current Time (s): <span id="player_time"></span>
+            <br />Video Duration (s): <span id="player_duration"></span>
+            <br />Ready State: <span id="player_state"></span>
+            <br />Volume (0-1): <span id="player_vol"></span>
+          </div>
+          <div id="footnotediv" width="50%" height="50%"> </div>
         </div>
+        
+        <div>
+          <h3>Description</h3>
+          This demo will showcase how a Vimeo flash video can be integrated into Popcorn. This  is done by making the flash video masquerade as HTML 5 video.<br />
+          Vimeo will not allow their player to be chromeless (hidden controls), but custsom controls have been developed and tied into theirs.<br />
+          Clicking play/pause or seeking in either the video or via custsom controls will cause the other to update.<br />
+          Clicking on the embed option in the Vimeo player while the video is playing will cause the video to pause and custom controls to update.<br />
+          Click the links below to have Popcorn play the video automaticaally or have the video play itself<br />
+          
+          <a href="?autoplay">Have the video play itself automatically</a><br />
+          <a href="?popcornplay">Have Popcorn play the video automatically</a>
+        </div>
+        
+        <!-- A vimeo limitation, this script must be included AFTER the embedded iframe -->
         <script src="./froogaloop.min.js"></script>
         <script type="text/javascript">
-            var player;
+            var player,
+                playerId = "player_1",
+                popped;
+                
+                //alert(Froogaloop.init);
             
+            // Called as onload function
+            // A Vimeo limitation, must appear below inclusion of froogaloop script
             VimeoEmbedLoaded = function( player )
             {
-                var loop = 0;
-                var volume = 1;
+                var loop = 0,
+                    volume = 1,
+                    rPopPlay = /[\?&]popcornplay(=1)?/i;
                 
+                // Hook up custsom controls
                 // Single play/pause button
                 document.getElementById("btnPlayPause").addEventListener("click", function(e) {
                   if ( player.paused ) {
                     player.play();
-                    e.target.innerHTML = "Pause";
                   } else {
                     player.pause();
-                    e.target.innerHTML = "Play";
                   }
                 }, false);
                 
@@ -67,8 +87,8 @@
 
                 //Loop
                 document.getElementById("btnLoop").addEventListener("click", function() {
-                  loop = loop === 0 ? 1 : 0;
-                  player.seetLoop(loop);
+                  loop = loop === "loop" ? "" : "loop";
+                  player.setLoop(loop);
                 }, false);
 
                 //Volume
@@ -79,13 +99,46 @@
                 
                 player.addEventListener( "timeupdate", function() {
                   document.getElementById( "player_time" ).innerHTML = player.currentTime;
-                }, false);                
+                }, false);
+                
+                // Hook into player events
+                
+                player.addEventListener( "play", function() {
+                  document.getElementById("btnPlayPause").innerHTML = "Pause";
+                }, false);
+                
+                player.addEventListener( "pause", function() {
+                  document.getElementById("btnPlayPause").innerHTML = "Play";
+                }, false);
+                
+                if ( location.search.match(rPopPlay) ) {
+                  popped.play();
+                }
             };
 
             //On document ready
             document.addEventListener("DOMContentLoaded", function() {
+              var rAutoplay = /[\?&]autoplay(=1)?/i;
+              
+              popped = Popcorn("#"+playerId)
+                  .footnote({
+                    start: 5, // seconds
+                    end: 15, // seconds
+                    text: 'Video is "RiP: A Rremix Manifesto", by Brett Gaylor',
+                    target: 'footnotediv'
+                  } );
+              
               //Listen to the load event for all the iframes on the page
-              player = new LikeAVideo.Vimeo( "player_1" );
+              player = new Popcorn.VimeoEngine( playerId );
+                
+              player.addEventListener( "load", function() {
+                VimeoEmbedLoaded( player );
+              }, false );
+              
+               // Hook into custom events before onload
+              player.addEventListener( "volumechange", function() {
+                document.getElementById("player_vol").innerHTML = player.volume;
+              }, false);
               
               player.addEventListener( "durationchange", function() {
                 document.getElementById("player_duration").innerHTML = player.duration;
@@ -94,10 +147,11 @@
               player.addEventListener( "readystatechange", function() {
                 document.getElementById("player_state").innerHTML = player.readyState;
               }, false);
-                
-              player.addEventListener( "load", function() {
-                VimeoEmbedLoaded( player );
-              }, false );
+              
+              // Autoplay attribute must be sete before load event is fired
+              if ( location.search.match(rAutoplay) ) {
+                player.autoplay = 1;
+              }
             }, false);
         </script>
     </body>
