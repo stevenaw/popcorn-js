@@ -21,13 +21,16 @@
                 padding-left: 20px;
             }
         </style>
+        
+        <script src="./froogaloop.min.js"></script>
+        
         <script src="../../popcorn.js"></script>
         <script type="text/javascript" src="popcorn.playerVimeo.js"></script>
         <script src="../../plugins/footnote/popcorn.footnote.js"></script>
     </head>
     <body>
         <div>
-          <iframe id="player_1" src="http://player.vimeo.com/video/11127501?js_api=1&js_swf_id=player_1" width="500" height="281" frameborder="0"></iframe>
+          <iframe id="player_1" width="500" height="281" frameborder="0"></iframe>
           <button class="simple" id="btnPlayPause">Play</button>
           <button class="seek" id="btnSeek">Seek to 30</button>
           <button class="loop" id="btnLoop">Toggle Loop</button>
@@ -48,19 +51,15 @@
           Clicking play/pause or seeking in either the video or via custsom controls will cause the other to update.<br />
           Clicking on the embed option in the Vimeo player while the video is playing will cause the video to pause and custom controls to update.<br />
           Click the links below to have Popcorn play the video automaticaally or have the video play itself<br />
+          The vimeo video can be specified in the HTML source by giving the vimeo we site url (http://vimeo.com/VIDEOID) to either the VimeoEngine or as the iframe src attribute<br />
           
           <a href="?autoplay">Have the video play itself automatically</a><br />
           <a href="?popcornplay">Have Popcorn play the video automatically</a>
         </div>
-        
-        <!-- A vimeo limitation, this script must be included AFTER the embedded iframe -->
-        <script src="./froogaloop.min.js"></script>
         <script type="text/javascript">
             var player,
                 playerId = "player_1",
                 popped;
-                
-                //alert(Froogaloop.init);
             
             // Called as onload function
             // A Vimeo limitation, must appear below inclusion of froogaloop script
@@ -102,7 +101,6 @@
                 }, false);
                 
                 // Hook into player events
-                
                 player.addEventListener( "play", function() {
                   document.getElementById("btnPlayPause").innerHTML = "Pause";
                 }, false);
@@ -111,7 +109,7 @@
                   document.getElementById("btnPlayPause").innerHTML = "Play";
                 }, false);
                 
-                if ( location.search.match(rPopPlay) ) {
+                if ( rPopPlay.test(location.search) ) {
                   popped.play();
                 }
             };
@@ -120,16 +118,16 @@
             document.addEventListener("DOMContentLoaded", function() {
               var rAutoplay = /[\?&]autoplay(=1)?/i;
               
+               //Listen to the load event for all the iframes on the page
+              player = new Popcorn.VimeoEngine( playerId, "http://vimeo.com/11127501" );
+              
               popped = Popcorn("#"+playerId)
                   .footnote({
                     start: 5, // seconds
-                    end: 15, // seconds
+                    end: 40, // seconds
                     text: 'Video is "RiP: A Rremix Manifesto", by Brett Gaylor',
                     target: 'footnotediv'
                   } );
-              
-              //Listen to the load event for all the iframes on the page
-              player = new Popcorn.VimeoEngine( playerId );
                 
               player.addEventListener( "load", function() {
                 VimeoEmbedLoaded( player );
@@ -148,8 +146,11 @@
                 document.getElementById("player_state").innerHTML = player.readyState;
               }, false);
               
+              document.getElementById("player_state").innerHTML = player.readyState;
+              document.getElementById("player_time").innerHTML = player.currentTime;
+              
               // Autoplay attribute must be sete before load event is fired
-              if ( location.search.match(rAutoplay) ) {
+              if ( rAutoplay.test(location.search) ) {
                 player.autoplay = 1;
               }
             }, false);

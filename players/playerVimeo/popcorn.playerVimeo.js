@@ -1,3 +1,5 @@
+//Popcorn.getScript("./froogaloop.min.js");
+
 ( function () {
   var undef;
   
@@ -56,11 +58,14 @@
   
   // A constructor, but we need to wrap it to allow for "static" functions
   Popcorn.VimeoEngine = (function() {
+    var rPlayerUri = /^http:\/\/player\.vimeo\.com\/video\/[\d]+/i;
+    var rWebUrl = /vimeo\.com\/[\d]+/;
+    
     // Extract the numeric video id from container uri: 'http://player.vimeo.com/video/11127501' or 'http://player.vimeo.com/video/4282282'
     // Expect id to be a valid 32/64-bit unsigned integer
     // Returns string, empty string if could not match
     function extractIdFromUri( uri ) {
-      var matches = uri.match( /^http:\/\/player\.vimeo\.com\/video\/[\d]+/i );
+      var matches = uri.match( rPlayerUri );
       return matches ? matches[0].substr(30) : "";
     };
     
@@ -69,20 +74,28 @@
     // Expect id to be a valid 32/64-bit unsigned integer
     // Returns string, empty string if could not match
     function extractIdFromUrl( url ) {
-      var matches = url.match( /vimeo\.com\/[\d]+/ );
+      var matches = url.match( rWebUrl );
       return matches ? matches[0].substr(10) : "";
     };
   
     // If container id is not supplied, assumed to be same as player id
-    var ctor = function ( containerId ) {
+    var ctor = function ( containerId, videoUrl ) {
       if ( !containerId ) {
         throw "Must supply an id!";
       }
       
       var swfObj = document.getElementById( containerId ),
           hasLoggeddLoading = false,
-          vidId = extractIdFromUri( swfObj.src ),
+          vidId,
           evtHolder = new LikeADOM();
+          
+      if ( !swfObj ) {
+        throw "Invalid id, could not find it!";
+      } else if ( !Froogaloop || !Froogaloop.init ) {
+        // Clear source so as not to accidentally be diverted
+        swfObj.src = "";
+        throw "This plugin requires the Froogaloop framework!";
+      }
           
       swfObj.paused = true;
       swfObj.duration = -1;
@@ -90,6 +103,24 @@
       swfObj.currentTime = -1;
       swfObj.volume = 0.5;
       swfObj.autoplay;
+      
+      // Try and get a video id from a vimeo site url
+      // Try eithere from ctor param or from iframe itself
+      if( videoUrl ) {
+        vidId = extractIdFromUrl( videoUrl );
+      } else {
+        vidId = extractIdFromUrl( swfObj.src )
+      }
+      
+      // If was able to gete a video id
+      if ( vidId ) {
+        // Set iframe source to vimeo player and id
+        // Note that speccifying a web url will over-write any src attribute already on the iframe
+        swfObj.src = "http://player.vimeo.com/video/"+vidId+"?js_api=1&js_swf_id=player_1";
+      }
+      
+      // Link up iframe with froogaloop
+      Froogaloop.init([swfObj]);
           
       // Hook an event listener for the player event into internal event system
       // Stick to HTML conventions of add event listener and keep lowercase, without prependinng "on"
@@ -127,8 +158,8 @@
       }
       
       var retObj = Popcorn.extend(swfObj, {
-        // Popcorn's extend can't current handle get/set
-        
+        // Popcorn's extend can't handle get/set
+        // Do evereything as functions
         setLoop: function( val ) {
           var doLoop = val === "loop" ? 1 : 0;
           swfObj.api('api_setLoop', doLoop);
@@ -167,6 +198,8 @@
           evtHolder.dispatchEvent( "durationchange" );
         });
         
+        // Chain events and calls together so that this.currentTime reflects the current time of the video
+        // Done by Getting the Current Time while the video plays
         swfObj.addEvent( "onProgress", function() {
           swfObj.get( "api_getCurrentTime", function( time ) {
             swfObj.currentTime = time;
