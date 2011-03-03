@@ -27,39 +27,11 @@
         <script src="../../popcorn.js"></script>
         <script type="text/javascript" src="popcorn.playerVimeo.js"></script>
         <script src="../../plugins/footnote/popcorn.footnote.js"></script>
-    </head>
-    <body>
-        <div>
-          <iframe id="player_1" width="500" height="281" frameborder="0"></iframe>
-          <button class="simple" id="btnPlayPause">Play</button>
-          <button class="seek" id="btnSeek">Seek to 30</button>
-          <button class="loop" id="btnLoop">Toggle Loop</button>
-          <button class="volume" id="btnVolume">Toggle Volume</button>
-          <div>
-            Current Time (s): <span id="player_time"></span>
-            <br />Video Duration (s): <span id="player_duration"></span>
-            <br />Ready State: <span id="player_state"></span>
-            <br />Volume (0-1): <span id="player_vol"></span>
-          </div>
-          <div id="footnotediv" width="50%" height="50%"> </div>
-        </div>
         
-        <div>
-          <h3>Description</h3>
-          This demo will showcase how a Vimeo flash video can be integrated into Popcorn. This  is done by making the flash video masquerade as HTML 5 video.<br />
-          Vimeo will not allow their player to be chromeless (hidden controls), but custsom controls have been developed and tied into theirs.<br />
-          Clicking play/pause or seeking in either the video or via custsom controls will cause the other to update.<br />
-          Clicking on the embed option in the Vimeo player while the video is playing will cause the video to pause and custom controls to update.<br />
-          Click the links below to have Popcorn play the video automaticaally or have the video play itself<br />
-          The vimeo video can be specified in the HTML source by giving the vimeo we site url (http://vimeo.com/VIDEOID) to either the VimeoEngine or as the iframe src attribute<br />
-          
-          <a href="?autoplay">Have the video play itself automatically</a><br />
-          <a href="?popcornplay">Have Popcorn play the video automatically</a>
-        </div>
         <script type="text/javascript">
             var player,
                 playerId = "player_1",
-                popped;
+                popped; 
             
             // Called as onload function
             // A Vimeo limitation, must appear below inclusion of froogaloop script
@@ -81,27 +53,37 @@
                 
                 //Seek
                 document.getElementById("btnSeek").addEventListener("click", function() {
-                  player.seek( 30 );
+                  player.setCurrentTime( 30 );
                 }, false);
 
-                //Loop
+                // Loop
                 document.getElementById("btnLoop").addEventListener("click", function() {
                   loop = loop === "loop" ? "" : "loop";
                   player.setLoop(loop);
                 }, false);
 
-                //Volume
+                // Volume
                 document.getElementById("btnVolume").addEventListener("click", function() {
                   volume = volume === 1 ? 0.5 : 1;
                   player.setVolume(volume);
                 }, false);
                 
+                // Unload
+                document.getElementById("btnUnload").addEventListener("click", function() {
+                  player.unload();
+                }, false);
+                
+                // Mute
+                document.getElementById("btnMute").addEventListener("click", function() {
+                  player.setVolume(0);
+                }, false);
+                
+                // Hook into player events
                 player.addEventListener( "timeupdate", function() {
                   document.getElementById( "player_time" ).innerHTML = player.currentTime;
                 }, false);
                 
-                // Hook into player events
-                player.addEventListener( "play", function() {
+                player.addEventListener( "playing", function() {
                   document.getElementById("btnPlayPause").innerHTML = "Pause";
                 }, false);
                 
@@ -122,12 +104,12 @@
               player = new Popcorn.VimeoEngine( playerId, "http://vimeo.com/11127501" );
               
               popped = Popcorn("#"+playerId)
-                  .footnote({
-                    start: 5, // seconds
-                    end: 40, // seconds
-                    text: 'Video is "RiP: A Rremix Manifesto", by Brett Gaylor',
-                    target: 'footnotediv'
-                  } );
+                      .footnote({
+                        start: 5, // seconds
+                        end: 40, // seconds
+                        text: 'The video is "RiP: A Rremix Manifesto", by Brett Gaylor',
+                        target: 'footnotediv'
+                      } );
                 
               player.addEventListener( "load", function() {
                 VimeoEmbedLoaded( player );
@@ -136,6 +118,7 @@
                // Hook into custom events before onload
               player.addEventListener( "volumechange", function() {
                 document.getElementById("player_vol").innerHTML = player.volume;
+                document.getElementById("player_muted").innerHTML = player.muted;
               }, false);
               
               player.addEventListener( "durationchange", function() {
@@ -155,5 +138,41 @@
               }
             }, false);
         </script>
+    </head>
+    <body>
+        <div>
+          <iframe id="player_1" width="500" height="281" frameborder="0"></iframe>
+          <button class="simple" id="btnPlayPause">Play</button>
+          <button class="seek" id="btnSeek">Seek to 30</button>
+          <button class="loop" id="btnLoop">Toggle Loop</button>
+          <button class="volume" id="btnVolume">Toggle Volume</button>
+          <button class="volume" id="btnMute">Mute</button>
+          <button class="simple" id="btnUnload">Unload</button>
+          <div>
+            Current Time (s): <span id="player_time"></span>
+            <br />Video Duration (s): <span id="player_duration"></span>
+            <br />Ready State: <span id="player_state"></span>
+            <br />Volume (0-1): <span id="player_vol"></span>
+            <br />Muted: <span id="player_muted"></span>
+          </div>
+          <div id="footnotediv" width="50%" height="50%"> </div>
+        </div>
+        
+        <div>
+          <h3>Description</h3>
+          <p>
+            This demo will showcase how a Vimeo flash video can be integrated into Popcorn. This  is done by making the flash video masquerade as HTML 5 video.<br />
+            From 5 to 40 seconds, the footnote 'The video is "RiP: A Rremix Manifesto", by Brett Gaylor' will appear above thee description.
+          <hr >
+            Vimeo will not allow their player to be chromeless (hidden controls), but custsom controls have been developed and tied into theirs.<br />
+            Clicking play/pause or seeking in either the video or via custsom controls will cause the other to update.<br />
+            Clicking on the embed option in the Vimeo player while the video is playing will cause the video to pause and custom controls to update.<br />
+            Click the links below to have Popcorn play the video automaticaally or have the video play itself.<br />
+            The vimeo video can be specified in the HTML source by giving the vimeo web site url (http://vimeo.com/VIDEOID) to either the VimeoEngine or as the iframe src attribute.
+          </p>
+          <a href="?autoplay">Have the video play itself automatically</a><br />
+          <a href="?popcornplay">Have Popcorn play the video automatically</a>
+        </div>
+        
     </body>
 </html>
