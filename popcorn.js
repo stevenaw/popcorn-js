@@ -765,7 +765,18 @@
   // An interface for extending Popcorn
   // with parser functionality
   Popcorn.parser = function( name, type, definition ) {
-
+    // Use this function to resolve relative and absolute paths for file names
+    // Helps ensure we only parse the same data once
+    function getAbsPath( src ) {
+      if ( !src ) {
+        return;
+      }
+      
+      var img = new Image();
+      img.src = src;
+      return img.src;
+    }
+      
     if ( Popcorn.protect.natives.indexOf( name.toLowerCase() ) >= 0 ) {
       Popcorn.error("'" + name + "' is a protected function name");
       return;
@@ -788,56 +799,70 @@
         parseFn,
         parser = {};
     
-    parseFn = function ( filename, callback ) {
+    // Create a closure to eliminate duplicate parsings of the same source file by the same parser
+    parseFn = ( function() {
+      var files = {};
+      
+      return function ( filename, callback ) {
+        filename = getAbsPath( filename );
         
-      if ( !filename ) {
-        return this;
-      }
-
-      var that = this;
-
-      Popcorn.xhr({
-        url: filename,
-        dataType: type,
-        success: function( data ) {
-
-          var tracksObject = definition( data ),
-              tracksData,
-              tracksDataLen,
-              tracksDef,
-              idx = 0;
-
-          tracksData = tracksObject.data || [];
-          tracksDataLen = tracksData.length;
-          tracksDef = null;
-
-          //  If no tracks to process, return immediately
-          if ( !tracksDataLen ) {
-            return;
-          }
-
-          //  Create tracks out of parsed object
-          for ( ; idx < tracksDataLen; idx++ ) {
-
-            tracksDef = tracksData[ idx ];
-
-            for ( var key in tracksDef ) {
-
-              if ( hasOwn.call( tracksDef, key ) && !!that[ key ] ) {
-
-                that[ key ]( tracksDef[ key ] );
-              }
-            }
-          }
+        if ( !filename ) {
+          return this;
+        } else if ( files[ filename ] ) {
+          // File has already been parsed, call callback if required and return
           if ( callback ) {
             callback();
           }
+          
+          return this;
         }
-      });
 
-      return this;
-    };
+        var that = this;
+        
+        files[ filename ] = 1;
 
+        Popcorn.xhr({
+          url: filename,
+          dataType: type,
+          success: function( data ) {
+
+            var tracksObject = definition( data ),
+                tracksData,
+                tracksDataLen,
+                tracksDef,
+                idx = 0;
+
+            tracksData = tracksObject.data || [];
+            tracksDataLen = tracksData.length;
+            tracksDef = null;
+
+            //  If no tracks to process, return immediately
+            if ( !tracksDataLen ) {
+              return;
+            }
+
+            //  Create tracks out of parsed object
+            for ( ; idx < tracksDataLen; idx++ ) {
+
+              tracksDef = tracksData[ idx ];
+
+              for ( var key in tracksDef ) {
+
+                if ( hasOwn.call( tracksDef, key ) && !!that[ key ] ) {
+
+                  that[ key ]( tracksDef[ key ] );
+                }
+              }
+            }
+            if ( callback ) {
+              callback();
+            }
+          }
+        });
+
+        return this;
+      };
+    })();
     // Assign new named definition
     parser[ name ] = parseFn;
 

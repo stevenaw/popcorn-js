@@ -1561,8 +1561,9 @@ test("Parsing Functions", function () {
 
 test("Parsing Integrity", function () {
 
-  var expects = 6,
+  var expects = 8,
       count = 0,
+      numParsings = 0,
       timeOut = 0,
       poppercore = Popcorn( "#video" );
       
@@ -1579,32 +1580,42 @@ test("Parsing Integrity", function () {
   stop( 10000 );
 
   Popcorn.parser( "parseJSON2", function( data ){
+    numParsings++;
     ok( typeof data.json === "object", "data.json exists");
     plus();
     return data.json;
   });
 
   Popcorn.parser( "parseJSON3" , "json", function( data ){
+    numParsings++;
     ok( typeof data === "object", "data exists");
     plus();
     return data;
   });
 
-  Popcorn.plugin("parserTest", {
+  Popcorn.plugin( "parserTest", {
     
     start: function () {
-      ok(true, "parserTest started");
+      ok( true, "parserTest started" );
       plus();
     },
     end: function () {
-      ok(true, "parserTest ended");
+      ok( true, "parserTest ended" );
       plus();
     }
   });
-
-  poppercore.parseJSON2("data/parserData.json", function() {
+  
+  poppercore.parseJSON2( "data/parserData.json", function() {
+    poppercore.parseJSON2( "data/parserData.json" );
+    poppercore.parseJSON2( "data/parserData.json", function() {
+      ok( true, "Callback was called on duplicate file" );
+      plus();
+    });
     
     poppercore.parseJSON3("data/parserData.json", function() {
+      equals( 2, numParsings, "Did not parse duplicate file for same parser" );
+      plus();
+    
       poppercore.currentTime(5).play();
     });
 
