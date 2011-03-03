@@ -1,9 +1,9 @@
 // Popcorn Vimeo Player Wrapper
+// Source file is from https://github.com/vimeo/froogaloop/blob/master/froogaloop.min.js
+// HTTPS seems to have some difficulties with getScript, so store locally
+Popcorn.getScript( "./froogaloop.min.js" );
+
 ( function ( Popcorn ) {
-  // Source file is from https://github.com/vimeo/froogaloop/blob/master/froogaloop.min.js
-  // HTTPS seems to have some difficulties with getScript, so store locally
-  // Popcorn.getScript( "./froogaloop.min.js", Popcorn.nop );
-  
   /**
   * Vimeo wrapper for Popcorn.
   * This player adds enables Popcorn.js to handle Vimeo videos. It does so by masking an embedded Vimeo video iframe
@@ -111,17 +111,17 @@
           
           // Create a wrapper function to all registered listeners
           this["on"+evtName] = function() {
-            var subEvts = evts[evtName],
+            var evtArray = evts[evtName],
                 i,
                 l;
         
-            for ( i = 0, l = subEvts.length; i < l; i++ ) {
-              subEvts[i].call( owner );
+            for ( i = 0, l = evtArray.length; i < l; i++ ) {
+              evtArray[i].call( owner );
             }
           }
         }
         
-        evts[evtName].push(fn);
+        evts[evtName].push( fn );
         
         if ( doFire ) {
           dispatchEvent( evtName );
@@ -146,11 +146,10 @@
         return evts[ evtName.toLowerCase() ] || [];
       },
       dispatchEvent: function( evt ) {        
-        // If event object was passed in, toString will yield type (timeupdate)
+        // If event object was passed in, toString will yield event type as string (timeupdate)
         // If a string, toString() will return the string itself (timeupdate)
         var evt = "on"+evt.toString().toLowerCase();
-        if ( this[evt] )
-          this[evt]();
+        this[evt] && this[evt]();
       }
     };
   };
@@ -191,11 +190,11 @@
           
       if ( !swfObj ) {
         throw "Invalid id, could not find it!";
-      }/* else if ( !Froogaloop || !Froogaloop.init ) {
+      } else if ( !Froogaloop || !Froogaloop.init ) {
         // Clear source so as not to accidentally be diverted
         swfObj.src = "";
         throw "This plugin requires the Froogaloop framework!";
-      }*/
+      }
       
       evtHolder = new LikeADOM( swfObj );
       
@@ -266,8 +265,7 @@
       }
       
       retObj = Popcorn.extend(swfObj, {
-        // Popcorn's extend can't handle get/set
-        // Do evereything as functions
+        // Do everything as functions instead of get/set
         setLoop: function( val ) {
           swfObj.loop = val;
           isLoop = val === "loop" ? 1 : 0;
