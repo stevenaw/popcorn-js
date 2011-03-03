@@ -29,17 +29,20 @@
         <script src="../../plugins/footnote/popcorn.footnote.js"></script>
         
         <script type="text/javascript">
-            var player,
-                playerId = "player_1",
-                popped; 
-            
             // Called as onload function
-            // A Vimeo limitation, must appear below inclusion of froogaloop script
             VimeoEmbedLoaded = function( player )
             {
                 var loop = 0,
                     volume = 1,
                     rPopPlay = /[\?&]popcornplay(=1)?/i;
+                    
+                var popped = Popcorn("#"+player.id)
+                      .footnote({
+                        start: 5, // seconds
+                        end: 40, // seconds
+                        text: 'The video is "RiP: A Rremix Manifesto", by Brett Gaylor',
+                        target: 'footnotediv'
+                      } );
                 
                 // Hook up custsom controls
                 // Single play/pause button
@@ -91,6 +94,20 @@
                   document.getElementById("btnPlayPause").innerHTML = "Play";
                 }, false);
                 
+                // Hook into custom events
+                player.addEventListener( "volumechange", function() {
+                  document.getElementById("player_vol").innerHTML = player.volume;
+                  document.getElementById("player_muted").innerHTML = player.muted;
+                }, false);
+                
+                player.addEventListener( "durationchange", function() {
+                  document.getElementById("player_duration").innerHTML = player.duration;
+                }, false);
+                
+                player.addEventListener( "readystatechange", function() {
+                  document.getElementById("player_state").innerHTML = player.readyState;
+                }, false);
+                
                 if ( rPopPlay.test(location.search) ) {
                   popped.play();
                 }
@@ -98,42 +115,20 @@
 
             //On document ready
             document.addEventListener("DOMContentLoaded", function() {
-              var rAutoplay = /[\?&]autoplay(=1)?/i;
-              
-               //Listen to the load event for all the iframes on the page
-              player = new Popcorn.VimeoEngine( playerId, "http://vimeo.com/11127501" );
-              
-              popped = Popcorn("#"+playerId)
-                      .footnote({
-                        start: 5, // seconds
-                        end: 40, // seconds
-                        text: 'The video is "RiP: A Rremix Manifesto", by Brett Gaylor',
-                        target: 'footnotediv'
-                      } );
+              var rAutoplay = /[\?&]autoplay(=1)?/i,
+                  player = new Popcorn.VimeoEngine(  "player_1", "http://vimeo.com/11127501" );
                 
               player.addEventListener( "load", function() {
-                VimeoEmbedLoaded( player );
+                VimeoEmbedLoaded( this );
               }, false );
-              
-               // Hook into custom events before onload
-              player.addEventListener( "volumechange", function() {
-                document.getElementById("player_vol").innerHTML = player.volume;
-                document.getElementById("player_muted").innerHTML = player.muted;
-              }, false);
-              
-              player.addEventListener( "durationchange", function() {
-                document.getElementById("player_duration").innerHTML = player.duration;
-              }, false);
-              
-              player.addEventListener( "readystatechange", function() {
-                document.getElementById("player_state").innerHTML = player.readyState;
-              }, false);
               
               document.getElementById("player_state").innerHTML = player.readyState;
               document.getElementById("player_time").innerHTML = player.currentTime;
+              document.getElementById("player_vol").innerHTML = player.volume;
+              document.getElementById("player_muted").innerHTML = player.muted;
               
-              // Autoplay attribute must be sete before load event is fired
-              if ( rAutoplay.test(location.search) ) {
+              // Autoplay attribute must be set before load event is fired
+              if ( rAutoplay.test( location.search ) ) {
                 player.autoplay = 1;
               }
             }, false);
@@ -162,16 +157,21 @@
           <h3>Description</h3>
           <p>
             This demo will showcase how a Vimeo flash video can be integrated into Popcorn. This  is done by making the flash video masquerade as HTML 5 video.<br />
-            From 5 to 40 seconds, the footnote 'The video is "RiP: A Rremix Manifesto", by Brett Gaylor' will appear above thee description.
+            Due to the Flash security model, this demo must be  run from a web server<br />
+            From 5 to 40 seconds, the footnote 'The video is "RiP: A Rremix Manifesto", by Brett Gaylor' will appear above the description.
           <hr >
             Vimeo will not allow their player to be chromeless (hidden controls), but custsom controls have been developed and tied into theirs.<br />
             Clicking play/pause or seeking in either the video or via custsom controls will cause the other to update.<br />
             Clicking on the embed option in the Vimeo player while the video is playing will cause the video to pause and custom controls to update.<br />
             Click the links below to have Popcorn play the video automaticaally or have the video play itself.<br />
-            The vimeo video can be specified in the HTML source by giving the vimeo web site url (http://vimeo.com/VIDEOID) to either the VimeoEngine or as the iframe src attribute.
+            The vimeo video can be specified in the HTML source by giving the vimeo web site url (http://vimeo.com/VIDEOID) to either the VimeoEngine or as the iframe src attribute.<br/>
           </p>
-          <a href="?autoplay">Have the video play itself automatically</a><br />
-          <a href="?popcornplay">Have Popcorn play the video automatically</a>
+          <strong>Autoplay Options</strong>
+          <ul>
+            <li><a href="?autoplay">Have the video play itself automatically</a></li>
+            <li><a href="?popcornplay">Have Popcorn play the video automatically</a></li>
+            <li><a href="?">Do not autoplay</a></li>
+          </ul>
         </div>
         
     </body>

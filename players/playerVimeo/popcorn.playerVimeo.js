@@ -1,5 +1,9 @@
 // Popcorn Vimeo Player Wrapper
 ( function ( Popcorn ) {
+  // Source file is from https://github.com/vimeo/froogaloop/blob/master/froogaloop.min.js
+  // HTTPS seems to have some difficulties with getScript, so store locally
+  // Popcorn.getScript( "./froogaloop.min.js", Popcorn.nop );
+  
   /**
   * Vimeo wrapper for Popcorn.
   * This player adds enables Popcorn.js to handle Vimeo videos. It does so by masking an embedded Vimeo video iframe
@@ -187,11 +191,11 @@
           
       if ( !swfObj ) {
         throw "Invalid id, could not find it!";
-      } else if ( !Froogaloop || !Froogaloop.init ) {
+      }/* else if ( !Froogaloop || !Froogaloop.init ) {
         // Clear source so as not to accidentally be diverted
         swfObj.src = "";
         throw "This plugin requires the Froogaloop framework!";
-      }
+      }*/
       
       evtHolder = new LikeADOM( swfObj );
       
@@ -200,7 +204,7 @@
       swfObj.readyState = 0;
       swfObj.ended = 0;
       swfObj.currentTime = -1;
-      swfObj.volume = 0.5;
+      swfObj.volume = 1;
       swfObj.loop = 0;
       swfObj.initialTime = 0;
       swfObj.muted = swfObj.volume === 0;
