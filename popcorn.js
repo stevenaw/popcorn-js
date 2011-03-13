@@ -131,16 +131,19 @@
       }
 
 
-      matches = rIdExp.exec( entity );
+      if ( (typeof entity) == "string" ) {
+        matches = rIdExp.exec( entity );
 
-      if ( matches.length && matches[2]  ) {
-        elem = document.getElementById(matches[2]);
+        if ( matches.length && matches[2]  ) {
+          elem = document.getElementById(matches[2]);
+        }
+        
+        this.video = elem ? elem : null;
+        
+        Popcorn.addInstance(this);
+      } else if ( entity instanceof Object ) {
+        this.video = entity;
       }
-
-
-      this.video = elem ? elem : null;
-      
-      Popcorn.addInstance(this);
 
       this.data = {
         history: [],
@@ -167,6 +170,11 @@
           // this is so we do not fall off either end
 
           var duration = that.video.duration;
+          
+          if( typeof that.video.duration === "function") {
+            duration = that.video.duration();
+          }
+          
           // Check for no duration info (NaN)
           var videoDurationPlus = duration != duration ? Number.MAX_VALUE : duration + 1;
 
@@ -182,6 +190,11 @@
                 tracks         = that.data.trackEvents,
                 tracksByEnd    = tracks.byEnd,
                 tracksByStart  = tracks.byStart;
+
+
+            if (typeof this.currentTime === "function") {
+              currentTime = this.currentTime();
+            }
 
             // Playbar advancing
             if ( previousTime < currentTime ) {
@@ -269,7 +282,9 @@
         }
       };
 
-      isReady( this );
+      if ( this.video ) {
+        isReady( this );
+      }
 
       return this;
     }
@@ -343,6 +358,7 @@
 
       // todo: play, pause, mute should toggle
       var methods = "load play pause currentTime playbackRate mute volume duration",
+          noArgMethods = /load|play|pause|mute/,
           ret = {};
 
 
@@ -351,18 +367,21 @@
 
         ret[ name ] = function( arg ) {
 
-          if ( typeof this.video[name] === "function" ) {
-            this.video[ name ]();
+          var isFunc = typeof this.video[name] === "function";
+
+          if ( noArgMethods.test( name ) || ( arg !== false && arg !== null && typeof arg !== "undefined" ) ) {
+
+            if ( isFunc ) {
+              this.video[ name ]( arg );
+            } else {
+              this.video[ name ] = arg;
+            }
 
             return this;
           }
 
-
-          if ( arg !== false && arg !== null && typeof arg !== "undefined" ) {
-
-            this.video[ name ] = arg;
-
-            return this;
+          if ( isFunc ) {
+            return this.video[ name ]();
           }
 
           return this.video[ name ];
@@ -1161,3 +1180,4 @@
   }, false );
 
 })(window, window.document);
+
