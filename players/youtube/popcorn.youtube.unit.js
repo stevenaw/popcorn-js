@@ -1,7 +1,9 @@
 var ytReady = false;
-function onYouTubePlayerReady() {
+var popcorn = Popcorn( new Popcorn.youtube( 'video' ) );
+
+popcorn.listen( "load", function onYouTubePlayerReady() {
   ytReady = true;
-}
+});
 
 test( "Popcorn YouTube Plugin Startup", function() {
   var time = 0,

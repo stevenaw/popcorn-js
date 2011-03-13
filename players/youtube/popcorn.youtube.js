@@ -62,8 +62,14 @@ var onYouTubePlayerReady;
   };
   
   // Called when a player is loaded
+  // Playerid must match the element id
   onYouTubePlayerReady = function ( playerId ) {
     var vid = registry[playerId];
+    
+    // Video hadn't loaded yet when ctor was called
+    if( !vid.video ) {
+      vid.video = document.getElementById( playerId );
+    }
     
     // Set up stuff that requires the API to be loaded
     vid.duration = vid.video.getDuration();
