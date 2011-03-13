@@ -80,11 +80,11 @@ var onYouTubePlayerReady;
     vid.dispatchEvent( 'load' );
   }
 
-  Popcorn.youtube = function( elementId, url ) {
-    return new Popcorn.youtube.init( elementId, url );
+  Popcorn.youtube = function( elementId ) {
+    return new Popcorn.youtube.init( elementId );
   };
 
-  Popcorn.youtube.init = function( elementId, url ) {
+  Popcorn.youtube.init = function( elementId ) {
     if ( !elementId ) {
       throw "Element id is invalid.";
     }
@@ -97,14 +97,6 @@ var onYouTubePlayerReady;
     this.fullyLoaded = false;
     this.timeUpdater = null;
     this.progressUpdater = null;
-    
-    var vidId = extractIdFromUrl( url );
-    
-    if ( vidId ) {
-      this.addEventListener( "load", function() {
-        this.video.cueVideoByUrl( "http://www.youtube.com/e/"+vidId, 0 );
-      });
-    }
     
     registry[elementId] = this;
   };

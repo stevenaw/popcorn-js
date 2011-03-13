@@ -1,5 +1,5 @@
-var ytReady = false;
-var popcorn = Popcorn( new Popcorn.youtube( 'video' ) );
+var ytReady = false,
+    popcorn = Popcorn( new Popcorn.youtube( 'video' ) );
 
 popcorn.listen( "load", function onYouTubePlayerReady() {
   ytReady = true;
@@ -36,8 +36,7 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
     ok( false, "YouTube did not start." );
     return;
   }
-
-  var popcorn = Popcorn( new Popcorn.youtube( 'video' ) );
+  
   popcorn.volume(1); // is muted later
   
   // check time sync
@@ -61,13 +60,16 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
     'play',
     'playing',
     'seeked',
+    'volumechange',
+    'volumechange',
+    'volumechange',
     'playing',
     'pause',
     'ended'
   ];
 
   var expectedEventCount = expectedEvents.length;
-  expect(expectedEventCount + 2);
+  expect(expectedEventCount + 5);
 
   // register each events
   var eventCount = 0;
@@ -81,7 +83,7 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
         }
       }
       
-      popcorn.listen( event, function() {
+      popcorn.listen( event, function() {        
         eventCount++;
         var expected = expectedEvents.shift();
         if ( expected == event ) {
@@ -94,9 +96,6 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
     })( expectedEvents[i] );
   }
 
-  // begin the test
-  popcorn.play();
-
   // operations set1
   var set1Executed = false;
   popcorn.listen( 'playing', function() {
@@ -107,7 +106,7 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
 
     // toggle volume 1 second after playing
     setTimeout(function() {
-      popcorn.volume(0);
+      popcorn.volume(0.5);
     }, 1000);
 
     // pause 3 seconds after playing
@@ -118,6 +117,9 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
     set1Executed = true;
   });
 
+  // begin the test
+  popcorn.play();
+  
   // operations set2
   var set2Executed = false;
   popcorn.listen( 'pause', function() {
@@ -137,6 +139,25 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
 
     set2Executed = true;
   });
+  
+  // operations set3
+  var set3Executed = false;
+  popcorn.listen( 'seeked', function() {
+    if ( set3Executed ) {
+      return;
+    }
+    
+    popcorn.volume(1);
+    
+    popcorn.mute();
+    equals( popcorn.volume(), 0, "Muted" );
+    
+    popcorn.mute();
+    ok( popcorn.volume() !== 0, "Not Muted" );
+    equals( popcorn.volume(), 1, "Back to volume of 1" );
+
+    set3Executed = true;
+  });
 
   var time = 0,
       wait = 100,
@@ -155,4 +176,3 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
     }
   }, wait );
 });
-
