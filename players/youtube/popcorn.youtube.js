@@ -1,4 +1,6 @@
-// Popcorn Youtube Player Warpper
+// Popcorn Youtube Player Wrapper
+
+var onYouTubePlayerReady;
 
 ( function( Popcorn ) {
   /**
@@ -21,9 +23,10 @@
   var undef;
 
   // Config parameters
-  var debug = true;
-  var timeupdateInterval = 33; // 33 is suitable for 30 fps
-  var progressInterval = 250; // as specified by WHATWG
+  // 33 ms per update is suitable for 30 fps
+  // 250 ms progress interval as specified by WHATWG
+  var timeupdateInterval = 33;
+  var progressInterval = 250;
 
   // Ready State Constants
   var READY_STATE_HAVE_NOTHING = 0;
@@ -39,28 +42,67 @@
   var YOUTUBE_STATE_PAUSED = 2;
   var YOUTUBE_STATE_BUFFERING = 3;
   var YOUTUBE_STATE_CUED = 5;
+  
+  // Collection of all Youtube players
+  var registry = [];
+  
+  // Extract the id from a web url
+  function extractIdFromUrl( url ) {
+    if ( !url ) {
+      return;
+    }
+    
+    var matches = url.match( /((http:\/\/)?www\.)?youtube\.[a-z]+\/watch\?v\=[a-z0-9]+/i );
+    if ( !matches ) {
+      return;
+    }
+    
+    // Return id, which comes after first equals sign
+    return matches[0].split( "=" )[1];
+  };
+  
+  // Called when a player is loaded
+  onYouTubePlayerReady = function ( playerId ) {
+    var vid = registry[playerId];
+    
+    // Set up stuff that requires the API to be loaded
+    vid.duration = vid.video.getDuration();
+    vid.registerYoutubeEventHandlers();
+    vid.registerInternalEventHandlers();
+    
+    // Issue load event
+    vid.dispatchEvent( 'load' );
+  }
 
-  Popcorn.youtube = function( elementId ) {
-    return new Popcorn.youtube.init( elementId );
+  Popcorn.youtube = function( elementId, url ) {
+    return new Popcorn.youtube.init( elementId, url );
   };
 
-  Popcorn.youtube.init = function( elementId ) {
+  Popcorn.youtube.init = function( elementId, url ) {
     if ( !elementId ) {
       throw "Element id is invalid.";
     }
 
     this.video = document.getElementById( elementId );
     this.readyState = READY_STATE_HAVE_NOTHING;
-    this.duration = this.video.getDuration();
     this.eventListeners = {};
     this.loadStarted = false;
     this.loadedData = false;
     this.fullyLoaded = false;
     this.timeUpdater = null;
     this.progressUpdater = null;
-    this.registerYoutubeEventHandlers();
-    this.registerInternalEventHandlers();
-  }; // end Popcorn.youtube.init
+    
+    var vidId = extractIdFromUrl( url );
+    
+    if ( vidId ) {
+      this.addEventListener( "load", function() {
+        this.video.cueVideoByUrl( "http://www.youtube.com/e/"+vidId, 0 );
+      });
+    }
+    
+    registry[elementId] = this;
+  };
+  // end Popcorn.youtube.init
 
   Popcorn.extend( Popcorn.youtube.init.prototype, {
 
@@ -70,6 +112,7 @@
       var youcorn = this,
           stateChangeHandler = 'Popcorn.youtube.stateChangeEventHandler',
           errorHandler = 'Popcorn.youtube.errorEventHandler';
+          
       this.video.addEventListener( 'onStateChange', stateChangeHandler );
       this.video.addEventListener( 'onError', errorHandler );
 
@@ -78,37 +121,31 @@
        * separately here.
        */
       Popcorn.youtube.stateChangeEventHandler = function( state ) {
-        if ( debug ) {
-          console.log( 'Youtube state updated: ' + state );
-        }
         if ( state == YOUTUBE_STATE_UNSTARTED ) {
           youcorn.readyState = READY_STATE_HAVE_METADATA;
-          youcorn.raiseEvent('loadedmetadata');
+          youcorn.dispatchEvent( 'loadedmetadata' );
         } else if ( state == YOUTUBE_STATE_ENDED ) {
-          youcorn.raiseEvent('ended');
+          youcorn.dispatchEvent( 'ended' );
         } else if ( state == YOUTUBE_STATE_PLAYING ) {
           // Being able to play means current data is loaded.
           if ( !this.loadedData ) {
             this.loadedData = true;
-            youcorn.raiseEvent( 'loadeddata' );
+            youcorn.dispatchEvent( 'loadeddata' );
           }
 
           youcorn.readyState = READY_STATE_HAVE_CURRENT_DATA;
-          youcorn.raiseEvent( 'playing' );
+          youcorn.dispatchEvent( 'playing' );
         } else if ( state == YOUTUBE_STATE_PAUSED ) {
-          youcorn.raiseEvent( 'pause' );
+          youcorn.dispatchEvent( 'pause' );
         } else if ( state == YOUTUBE_STATE_BUFFERING ) {
-          youcorn.raiseEvent( 'waiting' );
+          youcorn.dispatchEvent( 'waiting' );
         } else if ( state == YOUTUBE_STATE_CUED ) {
           // not handled
         }
       };
 
       Popcorn.youtube.errorEventHandler = function( state ) {
-        if ( debug ) {
-          console.log( 'Youtube error encountered: ' + error );
-        }
-        youcorn.raiseEvent( 'error' );
+        youcorn.dispatchEvent( 'error' );
       };
     },
 
@@ -124,7 +161,7 @@
     },
 
     play: function() {
-      this.raiseEvent( 'play' );
+      this.dispatchEvent( 'play' );
       this.video.playVideo();
     },
 
@@ -142,6 +179,7 @@
       if ( time === undef ) {
         return this.video.getCurrentTime();
       }
+      
       var playing = this.video.getPlayerState() == YOUTUBE_STATE_PLAYING;
       this.video.seekTo( time, true );
 
@@ -156,27 +194,32 @@
       }
 
       // Raise event.
-      this.raiseEvent( 'seeked' );
+      this.dispatchEvent( 'seeked' );
     },
 
     duration: function() {
       return this.video.getDuration();
     },
 
+    // Mute is toggleable
     mute: function() {
-      if ( this.video.getVolume() != 0 ) {
+      if ( this.video.isMuted() ) {
+        this.video.unMute();
+        this.dispatchEvent( 'volumechange' );
+      } else {
         this.video.mute();
-        this.raiseEvent( 'volumechange' );
+        this.dispatchEvent( 'volumechange' );
       }
     },
 
     volume: function( vol ) {
-      if ( vol == undef ) {
+      if ( vol === undef ) {
         return this.video.getVolume() / 100;
       }
+      
       if ( vol != this.volume() ) {
         this.video.setVolume( vol * 100 );
-        this.raiseEvent( 'volumechange' );
+        this.dispatchEvent( 'volumechange' );
       }
     },
 
@@ -184,23 +227,23 @@
       if ( !this.eventListeners[eventName] ) {
         this.eventListeners[eventName] = [];
       }
+      
       this.eventListeners[eventName].push( func );
     },
 
     /**
      * Notify event listeners about an event.
      */
-    raiseEvent: function( name ) {
-      if ( debug ) {
-        console.log( 'Raising event: ' + name );
-      }
+    dispatchEvent: function( name ) {
       if ( !this.eventListeners[name] ) {
         return;
       }
-      for ( var i in this.eventListeners[name] ) {
-        // @TODO should we mimic the event object sent by HTMLMediaElement?
-        this.eventListeners[name][i].call( this, null );
-      }
+      
+      var self = this;
+      
+      Popcorn.forEach( this.eventListeners[name], function( evt ) {
+        evt.call( self, null );
+      });
     },
 
     /* Unsupported methods. */
@@ -215,23 +258,22 @@
 
   function startTimeUpdater( youcorn ) {
     youcorn.timeUpdater = setInterval(function() {
+      
       var state = youcorn.video.getPlayerState();
+      
       if ( (state == YOUTUBE_STATE_ENDED) || (state == YOUTUBE_STATE_PAUSED) ) {
         clearInterval(youcorn.timeUpdater);
         return;
       }
-      youcorn.raiseEvent( 'timeupdate' );
+      
+      youcorn.dispatchEvent( 'timeupdate' );
     }, timeupdateInterval);
   }
 
   function startProgressUpdater( youcorn ) {
     youcorn.progressUpdater = setInterval(function() {
-      var bytesLoaded = youcorn.video.getVideoBytesLoaded();
-      var bytesToLoad = youcorn.video.getVideoBytesTotal();
-      if ( debug ) {
-        console.log( 'Bytes loaded: ' + bytesLoaded );
-        console.log( 'Bytes to load: ' + bytesToLoad );
-      }
+      var bytesLoaded = youcorn.video.getVideoBytesLoaded(),
+          bytesToLoad = youcorn.video.getVideoBytesTotal();
 
       // do nothing if size is not yet determined
       if ( bytesToLoad == 0 ) {
@@ -241,19 +283,19 @@
       // raise an event if load has just started
       if ( !youcorn.loadStarted ) {
         youcorn.loadStarted = true;
-        youcorn.raiseEvent( 'loadstart' );
+        youcorn.dispatchEvent( 'loadstart' );
       }
 
       // fully loaded
       if ( bytesLoaded >= bytesToLoad ) {
         youcorn.fullyLoaded = true;
         youcorn.readyState = READY_STATE_HAVE_ENOUGH_DATA;
-        youcorn.raiseEvent( 'canplaythrough' );
+        youcorn.dispatchEvent( 'canplaythrough' );
         clearInterval( youcorn.progressUpdater );
         return;
       }
 
-      youcorn.raiseEvent( 'progress' );
+      youcorn.dispatchEvent( 'progress' );
     }, progressInterval);
   }
 
