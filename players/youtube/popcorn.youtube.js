@@ -44,7 +44,8 @@ var onYouTubePlayerReady;
   var YOUTUBE_STATE_CUED = 5;
   
   // Collection of all Youtube players
-  var registry = [];
+  var registry = {},
+      loadedPlayers = {};
   
   // Extract the id from a web url
   function extractIdFromUrl( url ) {
@@ -53,18 +54,39 @@ var onYouTubePlayerReady;
     }
     
     var matches = url.match( /((http:\/\/)?www\.)?youtube\.[a-z]+\/watch\?v\=[a-z0-9]+/i );
-    if ( !matches ) {
+    
+    // Return id, which comes after first equals sign
+    return !matches || matches[0].split( "=" )[1];
+  };
+  
+  function cueDelayedDurationCheck ( evt ) {
+    var self = this,
+        durSetEvt;
+        
+    durSetEvt = function() {
+      this.duration = this.video.getDuration();
+      this.dispatchEvent( "durationchange" );
+    };
+    
+    this.eventListeners[evt] = this.eventListeners[evt] || [];
+    
+    this.eventListeners[evt].unshift(durSetEvt);
+  }
+  
+  function getPlayerAddress( id ) {
+    if( !id ) {
       return;
     }
     
-    // Return id, which comes after first equals sign
-    return matches[0].split( "=" )[1];
-  };
+    return "http://www.youtube.com/e/"+id;
+  }
   
   // Called when a player is loaded
   // Playerid must match the element id
   onYouTubePlayerReady = function ( playerId ) {
     var vid = registry[playerId];
+    
+    loadedPlayers[playerId] = 1;
     
     // Video hadn't loaded yet when ctor was called
     if( !vid.video ) {
@@ -72,7 +94,6 @@ var onYouTubePlayerReady;
     }
     
     // Set up stuff that requires the API to be loaded
-    vid.duration = vid.video.getDuration();
     vid.registerYoutubeEventHandlers();
     vid.registerInternalEventHandlers();
     
@@ -80,14 +101,17 @@ var onYouTubePlayerReady;
     vid.dispatchEvent( 'load' );
   }
 
-  Popcorn.youtube = function( elementId ) {
-    return new Popcorn.youtube.init( elementId );
+  Popcorn.youtube = function( elementId, url ) {
+    return new Popcorn.youtube.init( elementId, url );
   };
 
-  Popcorn.youtube.init = function( elementId ) {
+  Popcorn.youtube.init = function( elementId, url ) {
     if ( !elementId ) {
       throw "Element id is invalid.";
     }
+    
+    var self = this,
+        durEvtType;
 
     this.video = document.getElementById( elementId );
     this.readyState = READY_STATE_HAVE_NOTHING;
@@ -98,7 +122,26 @@ var onYouTubePlayerReady;
     this.timeUpdater = null;
     this.progressUpdater = null;
     
+    this.playerId = elementId;
+    this.duration = Number.MAX_VALUE;
+    
+    // The video id for youtube
+    this.vidId = extractIdFromUrl( url );
+    
+    if ( this.vidId ) {
+      this.addEventListener( "load", function() {
+        self.video.cueVideoByUrl( getPlayerAddress( self.vidId ) );
+        cueDelayedDurationCheck.call( self, "playing" );
+      });
+    } else {
+      cueDelayedDurationCheck.call( this, "load" );
+    }
+    
     registry[elementId] = this;
+    
+    if (loadedPlayers[elementId]) {
+      this.dispatchEvent( "load" );
+    }
   };
   // end Popcorn.youtube.init
 
@@ -119,24 +162,28 @@ var onYouTubePlayerReady;
        * separately here.
        */
       Popcorn.youtube.stateChangeEventHandler = function( state ) {
+        // In case ctor has been called many times for many ctors
+        // Only use latest ctor call for each player id        
+        var self = registry[youcorn.playerId];
+        
         if ( state == YOUTUBE_STATE_UNSTARTED ) {
-          youcorn.readyState = READY_STATE_HAVE_METADATA;
-          youcorn.dispatchEvent( 'loadedmetadata' );
+          self.readyState = READY_STATE_HAVE_METADATA;
+          self.dispatchEvent( 'loadedmetadata' );
         } else if ( state == YOUTUBE_STATE_ENDED ) {
-          youcorn.dispatchEvent( 'ended' );
+          self.dispatchEvent( 'ended' );
         } else if ( state == YOUTUBE_STATE_PLAYING ) {
           // Being able to play means current data is loaded.
           if ( !this.loadedData ) {
             this.loadedData = true;
-            youcorn.dispatchEvent( 'loadeddata' );
+            self.dispatchEvent( 'loadeddata' );
           }
 
-          youcorn.readyState = READY_STATE_HAVE_CURRENT_DATA;
-          youcorn.dispatchEvent( 'playing' );
+          self.readyState = READY_STATE_HAVE_CURRENT_DATA;
+          self.dispatchEvent( 'playing' );
         } else if ( state == YOUTUBE_STATE_PAUSED ) {
-          youcorn.dispatchEvent( 'pause' );
+          self.dispatchEvent( 'pause' );
         } else if ( state == YOUTUBE_STATE_BUFFERING ) {
-          youcorn.dispatchEvent( 'waiting' );
+          self.dispatchEvent( 'waiting' );
         } else if ( state == YOUTUBE_STATE_CUED ) {
           // not handled
         }
@@ -221,25 +268,28 @@ var onYouTubePlayerReady;
       }
     },
 
-    addEventListener: function( eventName, func ) {
-      if ( !this.eventListeners[eventName] ) {
-        this.eventListeners[eventName] = [];
+    addEventListener: function( evt, func ) {
+      var evtName = evt.type || evt;
+      
+      if ( !this.eventListeners[evtName] ) {
+        this.eventListeners[evtName] = [];
       }
       
-      this.eventListeners[eventName].push( func );
+      this.eventListeners[evtName].push( func );
     },
 
     /**
      * Notify event listeners about an event.
      */
     dispatchEvent: function( name ) {
-      if ( !this.eventListeners[name] ) {
+      var evtName = name.type || name;
+      if ( !this.eventListeners[evtName] ) {
         return;
       }
       
       var self = this;
       
-      Popcorn.forEach( this.eventListeners[name], function( evt ) {
+      Popcorn.forEach( this.eventListeners[evtName], function( evt ) {
         evt.call( self, null );
       });
     },
@@ -308,7 +358,6 @@ var onYouTubePlayerReady;
    * * canplay
    * * seeking
    * * ratechange
-   * * durationchange
    */
 
 })( Popcorn );

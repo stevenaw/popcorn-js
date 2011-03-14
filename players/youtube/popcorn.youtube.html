@@ -11,29 +11,32 @@
         }
         
         document.addEventListener( 'DOMContentLoaded', function() {
-          var popcorn = Popcorn( Popcorn.youtube( 'video' ) );
+          var popcorn = Popcorn( Popcorn.youtube( 'video', 'http://www.youtube.com/watch?v=9oar9glUCL0' ) );
           
+          popcorn.listen( 'durationchange', function() {
+            element( 'player-duration' ).innerHTML = popcorn.duration();
+          });
+          
+          // Update time
+          popcorn.listen( 'timeupdate', function() {
+            element( 'player-time' ).innerHTML = popcorn.currentTime();
+          });
+          
+          // Update button labels
+          var paused = true;
+          popcorn.listen( 'playing' , function() {
+            paused = false;
+            element( 'btn-play-pause' ).innerHTML = 'Pause';
+          });
+          popcorn.listen('pause', function() {
+            paused = true;
+            element( 'btn-play-pause' ).innerHTML = 'Play';
+          });
+            
           // Setup UI after loaded
           popcorn.listen( 'load', function() {
             element( 'player-status' ).innerHTML = 'Ready';
-            element( 'player-duration' ).innerHTML = popcorn.duration();
-
-            // Update time
-            popcorn.listen( 'timeupdate', function() {
-              element( 'player-time' ).innerHTML = popcorn.currentTime();
-            });
-
-            // Update button labels
-            var paused = true;
-            popcorn.listen( 'play' , function() {
-              paused = false;
-              element( 'btn-play-pause' ).innerHTML = 'Pause';
-            });
-            popcorn.listen('pause', function() {
-              paused = true;
-              element( 'btn-play-pause' ).innerHTML = 'Play';
-            });
-
+            
             // Single play/pause button
             element( 'btn-play-pause' ).addEventListener( 'click', function() {
               if ( paused ) {

@@ -1,5 +1,5 @@
 var ytReady = false,
-    popcorn = Popcorn( new Popcorn.youtube( 'video' ) );
+    popcorn = Popcorn( Popcorn.youtube( 'video' ) );
 
 popcorn.listen( "load", function onYouTubePlayerReady() {
   ytReady = true;
@@ -175,4 +175,39 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
       clearInterval( interval );
     }
   }, wait );
+});
+
+test( "Popcorn YouTube Plugin Event Tests", function() {
+  function plus(){ 
+    if ( ++count == expects ) {
+      start(); 
+    }
+  }
+  
+  QUnit.reset();
+  
+  var count = 0,
+      expects = 4,
+      rawTube = Popcorn.youtube( 'video', 'http://www.youtube.com/watch?v=9oar9glUCL0' );
+      
+  expect( expects );
+  stop( 5000 );
+  
+  equals( rawTube.vidId, '9oar9glUCL0', 'Video id set' );
+  plus();
+  
+  equals( rawTube.duration, Number.MAX_VALUE, 'Duration starts as Max Value');
+  plus();
+  
+  rawTube.addEventListener( "playing", function() {
+    notEqual( rawTube.duration, Number.MAX_VALUE, "Duration has been changed from max value" );
+    plus();
+    notEqual( rawTube.duration, 0, "Duration is non-zero" );
+    plus();
+    
+    rawTube.pause();
+  });
+  
+  rawTube.play();
+  
 });
