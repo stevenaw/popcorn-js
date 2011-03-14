@@ -68,7 +68,7 @@ test("Utility", function () {
 });
 
 test("Instances", function() {
-  var expects = 9, 
+  var expects = 11, 
       count   = 0,
       instance;
   
@@ -90,6 +90,9 @@ test("Instances", function() {
   
   ok( typeof Popcorn.getInstanceById === "function" , "Popcorn.getInstanceById is a provided utility function");
   plus();
+
+  ok( typeof Popcorn.removeInstanceById === "function" , "Popcorn.removeInstanceById is a provided utility function");  
+  plus();
   
   ok( typeof Popcorn.instanceIds === "object" , "Popcorn.instanceIds is a provided cache object");
   plus();
@@ -110,7 +113,16 @@ test("Instances", function() {
   
   equal( Popcorn.instances.length, 1, "There are the correct number of Popcorn instances" );
   plus();
-   
+
+  //  Create another instance
+  Popcorn("#video");
+
+  //  Get a reference to remove
+  var remove = Popcorn.instances[1];
+
+  //  Remove and check the length of the currently cached instances
+  equal( Popcorn.removeInstanceById( remove.id ).length, 1, "Removing an instance by id: 1 instance remains" );
+  plus();
 });
 
 test("guid", function () {
@@ -321,6 +333,82 @@ test("Stored By Type", function () {
   
   p.unlisten("play");
   
+});
+
+
+test("Passed an object", function () {
+  
+  QUnit.reset();
+  
+  var evtMethods = "addEventListener dispatchEvent".split(/\s+/),
+      methods = "load play pause currentTime playbackRate mute volume duration".split(/\s+/),
+      attributes = "readyState autoplay".split(/\s+/),
+      obj = {},
+      p,
+      playEvent,
+      count = 0,
+      wants;
+
+  function plus(){ 
+
+    if ( ++count === wants ) {  
+      start();
+    } 
+  }
+  
+  Popcorn.forEach( methods, function( method ) {
+    obj[method] = (function() {
+      var calledWithArgs = 0,
+          calledWithoutArgs = 0;
+          
+      return function( arg ) {
+        if ( arg && !calledWithArgs ) {
+          calledWithArgs = 1;
+          ok(true, method+" called with argument");
+          plus();
+        } else if ( !arg && !calledWithoutArgs ) {
+          calledWithoutArgs = 1;
+          ok(true, method+" called without argument");
+          plus();
+        }
+      }
+    })();
+  });
+  
+  Popcorn.forEach( evtMethods, function( method ) {
+    obj[method] = (function() {
+      var hasCalled = 0;
+      
+      return function() {
+        if ( hasCalled ) {
+          return;
+        }
+        
+        hasCalled = 1;
+        ok(true, method+" called");
+        plus();
+      };
+    })()
+  });
+  
+  Popcorn.forEach( attributes, function( attr ) {
+    obj[attr] = 3;
+  });
+  
+  p = Popcorn( obj );
+  wants = methods.length*2 + evtMethods.length;
+
+  expect( wants );
+  stop( 10000 );
+  
+  p.listen( "play", Popcorn.nop );
+  
+  Popcorn.forEach( methods, function( method ) {
+    p[method]();
+    p[method]( 1 );
+  });
+  
+  p.trigger( "play" );
 });
 
 
@@ -1764,9 +1852,6 @@ test("Parsing Handler - References unavailable plugin", function () {
   }, 2000);
   
 });
-
-
-
 
 module("Popcorn Test Runner End");
 test("Last Check", function () {

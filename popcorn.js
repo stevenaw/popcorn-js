@@ -21,56 +21,60 @@
     //  Return new Popcorn object
     return new Popcorn.p.init( entity );
   };
-  
+
+  //  Instance caching
   Popcorn.instances = [];
-  
   Popcorn.instanceIds = {};
-  
-  Popcorn.id = null;
-  
-  Popcorn.removeInstance = function( popcornInstance ) {
+
+  Popcorn.removeInstance = function( instance ) {
     //  If called prior to any instances being created
     //  Return early to avoid splicing on nothing
     if ( !Popcorn.instances.length ) {
-      
       return;
-      
     }
-  
-    Popcorn.instances.splice( Popcorn.instanceIds[ popcornInstance.id ], 1 );
 
-    delete Popcorn.instanceIds[ popcornInstance.id ];
-    
+    //  Remove instance from Popcorn.instances 
+    Popcorn.instances.splice( Popcorn.instanceIds[ instance.id ], 1 );
+
+    //  Delete the instance id key
+    delete Popcorn.instanceIds[ instance.id ];
+
+    //  Return current modified instances
+    return Popcorn.instances;
   };
 
   //  Addes a Popcorn instance to the Popcorn instance array
-  Popcorn.addInstance = function( popcornInstance ) {
-  
-    if ( !popcornInstance.video.id ) { 
-    
-      popcornInstance.id = "__popcorn" + Popcorn.instances.length;
-    
-    }
-    
-    else {
-    
-      popcornInstance.id = popcornInstance.video.id;
-    
-    }
-    
-    Popcorn.instanceIds[ popcornInstance.id ] = Popcorn.instances.length;
-    
-    Popcorn.instances.push( popcornInstance );
-    
+  Popcorn.addInstance = function( instance ) {
+
+    var instanceLen = Popcorn.instances.length,
+        instanceId = instance.video.id && instance.video.id;
+
+    //  If the video element has its own `id` use it, otherwise provide one
+    //  Ensure that instances have unique ids and unique entries
+    //  Uses `in` operator to avoid false positives on 0
+    instance.id = !( instanceId in Popcorn.instanceIds ) && instanceId || 
+                      "__popcorn" + instanceLen;
+
+    //  Create a reference entry for this instance
+    Popcorn.instanceIds[ instance.id ] = instanceLen;
+
+    //  Add this instance to the cache
+    Popcorn.instances.push( instance );
+
+    //  Return the current modified instances
+    return Popcorn.instances;
   };
 
-  //  User passes in the name of the Popcorn instance and receive a popcorn object
-  Popcorn.getInstanceById = function( name ) {
-  
-    return Popcorn.instances[ Popcorn.instanceIds[ name ] ];
-    
+  //  Request Popcorn object instance by id
+  Popcorn.getInstanceById = function( id ) {
+    return Popcorn.instances[ Popcorn.instanceIds[ id ] ];
   };
-  
+
+  //  Remove Popcorn object instance by id
+  Popcorn.removeInstanceById = function( id ) {
+    return Popcorn.removeInstance( Popcorn.instances[ Popcorn.instanceIds[ id ] ] );
+  };
+
   //  Declare a shortcut (Popcorn.p) to and a definition of
   //  the new prototype for our Popcorn constructor
   Popcorn.p = Popcorn.prototype = {
@@ -127,16 +131,19 @@
       }
 
 
-      matches = rIdExp.exec( entity );
+      if ( (typeof entity) == "string" ) {
+        matches = rIdExp.exec( entity );
 
-      if ( matches.length && matches[2]  ) {
-        elem = document.getElementById(matches[2]);
+        if ( matches.length && matches[2]  ) {
+          elem = document.getElementById(matches[2]);
+        }
+        
+        this.video = elem ? elem : null;
+        
+        Popcorn.addInstance(this);
+      } else if ( entity instanceof Object ) {
+        this.video = entity;
       }
-
-
-      this.video = elem ? elem : null;
-      
-      Popcorn.addInstance(this);
 
       this.data = {
         history: [],
@@ -163,6 +170,11 @@
           // this is so we do not fall off either end
 
           var duration = that.video.duration;
+          
+          if( typeof that.video.duration === "function") {
+            duration = that.video.duration();
+          }
+          
           // Check for no duration info (NaN)
           var videoDurationPlus = duration != duration ? Number.MAX_VALUE : duration + 1;
 
@@ -178,6 +190,11 @@
                 tracks         = that.data.trackEvents,
                 tracksByEnd    = tracks.byEnd,
                 tracksByStart  = tracks.byStart;
+
+
+            if (typeof this.currentTime === "function") {
+              currentTime = this.currentTime();
+            }
 
             // Playbar advancing
             if ( previousTime < currentTime ) {
@@ -265,7 +282,9 @@
         }
       };
 
-      isReady( this );
+      if ( this.video ) {
+        isReady( this );
+      }
 
       return this;
     }
@@ -339,6 +358,7 @@
 
       // todo: play, pause, mute should toggle
       var methods = "load play pause currentTime playbackRate mute volume duration",
+          noArgMethods = /load|play|pause|mute/,
           ret = {};
 
 
@@ -347,18 +367,21 @@
 
         ret[ name ] = function( arg ) {
 
-          if ( typeof this.video[name] === "function" ) {
-            this.video[ name ]();
+          var isFunc = typeof this.video[name] === "function";
+
+          if ( noArgMethods.test( name ) || ( arg !== false && arg !== null && typeof arg !== "undefined" ) ) {
+
+            if ( isFunc ) {
+              this.video[ name ]( arg );
+            } else {
+              this.video[ name ] = arg;
+            }
 
             return this;
           }
 
-
-          if ( arg !== false && arg !== null && typeof arg !== "undefined" ) {
-
-            this.video[ name ] = arg;
-
-            return this;
+          if ( isFunc ) {
+            return this.video[ name ]();
           }
 
           return this.video[ name ];
@@ -1157,3 +1180,4 @@
   }, false );
 
 })(window, window.document);
+
