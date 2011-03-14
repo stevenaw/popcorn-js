@@ -10,12 +10,12 @@
   -->
   
   <script src="../../popcorn.js"></script>
-  <script src="popcorn.image.js"></script>
+  <script src="popcorn.googlefeed.js"></script>
 
-  <script src="popcorn.image.unit.js"></script>
+  <script src="popcorn.googlefeed.unit.js"></script>
 </head>
 <body>
-  <h1 id="qunit-header">Popcorn Image Plugin</h1>
+  <h1 id="qunit-header">Popcorn Google Feed Plugin</h1>
   <h2 id="qunit-banner"></h2>
   <div id="qunit-testrunner-toolbar"></div>
   <h2 id="qunit-userAgent"></h2>
@@ -23,7 +23,7 @@
   <div id="qunit-fixture">  </div>
   
   <video id='video' 
-    controls
+    controls preload='none' 
     width= '250px'
     poster="../../test/poster.png"> 
 
@@ -38,6 +38,7 @@
     <p>Your user agent does not support the HTML5 Video element.</p> 
 
   </video> 
-  <div id="imagediv"></div>  
+  <div id="feed" style="position:relative;float:left;width:400px;height:600px"></div> 
+  <div id="feed1" style="position:relative;float:left;width:600px;height:200px"></div>   
 </body>
 </html>
