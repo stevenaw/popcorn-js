@@ -37,19 +37,14 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
     return;
   }
   
-  popcorn.volume(1); // is muted later
+  function plus(){ 
+    if ( ++count == expects ) {
+      start(); 
+    }
+  }
   
-  // check time sync
-  popcorn.exec(2, function() {
-    ok( popcorn.currentTime() >= 2, "Check time synchronization." );
-  });
-  popcorn.exec(49, function() {
-    ok( popcorn.currentTime() >= 49, "Check time synchronization." );
-  });
-  popcorn.exec(40, function() {
-    ok( false, "This should not be run." );
-  });
-
+  QUnit.reset();
+  
   // events must be fired in this order
   var expectedEvents = [
     'play',
@@ -62,18 +57,38 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
     'seeked',
     'volumechange',
     'volumechange',
-    'volumechange',
     'playing',
     'pause',
     'ended'
   ];
-
-  var expectedEventCount = expectedEvents.length;
-  expect(expectedEventCount + 5);
+  
+  var count = 0,
+      eventCount = 0,
+      added = [],
+      expects = expectedEvents.length + 5,
+      set1Executed = false,
+      set2Executed = false,
+      set3Executed = false;
+      
+  stop( 15000 );
+  
+  expect();  
+  popcorn.volume(1); // is muted later
+  
+  // check time sync
+  popcorn.exec(2, function() {
+    ok( popcorn.currentTime() >= 2, "Check time synchronization." );
+    plus();
+  });
+  popcorn.exec(49, function() {
+    ok( popcorn.currentTime() >= 49, "Check time synchronization." );
+    plus();
+  });
+  popcorn.exec(40, function() {
+    ok( false, "This should not be run." );
+  });
 
   // register each events
-  var eventCount = 0;
-  var added = [];
   for ( var i in expectedEvents ) {
     (function( event ) {
       // skip same listeners already added
@@ -86,10 +101,12 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
       popcorn.listen( event, function() {        
         eventCount++;
         var expected = expectedEvents.shift();
+        
         if ( expected == event ) {
-          ok( true, event + " is fired." );
+          ok( true, "Event: "+event + " is fired." );
+          plus();
         } else {
-          ok( false, event + " is fired, expecting: " + expected );
+          ok( false, event + " is fired unexpectedly, expecting: " + expected );
         }
       });
       added.push( event );
@@ -121,7 +138,6 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
   popcorn.play();
   
   // operations set2
-  var set2Executed = false;
   popcorn.listen( 'pause', function() {
     if ( set2Executed ) {
       return;
@@ -141,43 +157,29 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
   });
   
   // operations set3
-  var set3Executed = false;
   popcorn.listen( 'seeked', function() {
     if ( set3Executed ) {
       return;
     }
     
-    popcorn.volume(1);
+    popcorn.volume(0.5);
     
     popcorn.mute();
     equals( popcorn.volume(), 0, "Muted" );
+    plus();
     
     popcorn.mute();
     ok( popcorn.volume() !== 0, "Not Muted" );
-    equals( popcorn.volume(), 1, "Back to volume of 1" );
+    plus();
+    
+    equals( popcorn.volume(), 0.5, "Back to volume of 1" );
+    plus();
 
     set3Executed = true;
   });
-
-  var time = 0,
-      wait = 100,
-      timeout = 15000;
-
-  stop( timeout + wait );
-  var interval = setInterval( function() {
-    time += wait;
-    if ( time > timeout ) {
-      clearInterval( interval );
-      return;
-    }
-    if ( eventCount == expectedEventCount ) {
-      start();
-      clearInterval( interval );
-    }
-  }, wait );
 });
 
-test( "Popcorn YouTube Plugin Event Tests", function() {
+test( "Popcorn YouTube Plugin Url and Duration Tests", function() {
   function plus(){ 
     if ( ++count == expects ) {
       start(); 
@@ -209,5 +211,4 @@ test( "Popcorn YouTube Plugin Event Tests", function() {
   });
   
   rawTube.play();
-  
 });

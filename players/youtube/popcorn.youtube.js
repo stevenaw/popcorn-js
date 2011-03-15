@@ -198,10 +198,10 @@ var onYouTubePlayerReady;
     // Start current time and loading progress syncing intervals.
     registerInternalEventHandlers: function() {
       this.addEventListener( 'playing', function() {
-        startTimeUpdater( this );
+        this.startTimeUpdater();
       });
       this.addEventListener( 'loadedmetadata', function() {
-        startProgressUpdater( this );
+        this.startProgressUpdater();
       });
     },
 
@@ -300,28 +300,27 @@ var onYouTubePlayerReady;
     },
 
     playbackRate: function( arg ) {
-    }
-
-  }); // end Popcorn.extend
-
-  function startTimeUpdater( youcorn ) {
-    youcorn.timeUpdater = setInterval(function() {
+    },
+    
+    startTimeUpdater: function() {
+      var state = this.video.getPlayerState(),
+          self = this;
       
-      var state = youcorn.video.getPlayerState();
-      
-      if ( (state == YOUTUBE_STATE_ENDED) || (state == YOUTUBE_STATE_PAUSED) ) {
-        clearInterval(youcorn.timeUpdater);
-        return;
+      if ( state !== YOUTUBE_STATE_ENDED && state !== YOUTUBE_STATE_PAUSED ) {
+        this.dispatchEvent( 'timeupdate' );
       }
       
-      youcorn.dispatchEvent( 'timeupdate' );
-    }, timeupdateInterval);
-  }
-
-  function startProgressUpdater( youcorn ) {
-    youcorn.progressUpdater = setInterval(function() {
-      var bytesLoaded = youcorn.video.getVideoBytesLoaded(),
-          bytesToLoad = youcorn.video.getVideoBytesTotal();
+      if( state !== YOUTUBE_STATE_ENDED ) {
+        setTimeout( function() {
+          self.startTimeUpdater.call(self);
+        }, timeupdateInterval);
+      }
+    },
+    
+    startProgressUpdater: function() {
+      var bytesLoaded = this.video.getVideoBytesLoaded(),
+          bytesToLoad = this.video.getVideoBytesTotal(),
+          self = this;
 
       // do nothing if size is not yet determined
       if ( bytesToLoad == 0 ) {
@@ -329,23 +328,26 @@ var onYouTubePlayerReady;
       }
 
       // raise an event if load has just started
-      if ( !youcorn.loadStarted ) {
-        youcorn.loadStarted = true;
-        youcorn.dispatchEvent( 'loadstart' );
+      if ( !this.loadStarted ) {
+        this.loadStarted = true;
+        this.dispatchEvent( 'loadstart' );
       }
 
       // fully loaded
       if ( bytesLoaded >= bytesToLoad ) {
-        youcorn.fullyLoaded = true;
-        youcorn.readyState = READY_STATE_HAVE_ENOUGH_DATA;
-        youcorn.dispatchEvent( 'canplaythrough' );
-        clearInterval( youcorn.progressUpdater );
+        this.fullyLoaded = true;
+        this.readyState = READY_STATE_HAVE_ENOUGH_DATA;
+        this.dispatchEvent( 'canplaythrough' );
         return;
       }
 
-      youcorn.dispatchEvent( 'progress' );
-    }, progressInterval);
-  }
+      this.dispatchEvent( 'progress' );
+        
+      setTimeout( function() {
+        self.startTimeUpdater.call( self );
+      }, progressInterval);
+    }
+  }); // end Popcorn.extend
 
   /* Unsupported properties and events. */
 
