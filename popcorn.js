@@ -127,18 +127,16 @@
 
         return;
       }
+      
+      // check if entity is a valid string id
+      matches = rIdExp.exec( entity );
 
-      if ( (typeof entity) == "string" ) {
-        matches = rIdExp.exec( entity );
+      // get video element by id or reference
+      this.video = matches && matches.length && matches[ 2 ] ?
+                    document.getElementById( matches[ 2 ] ) :
+                    entity;
 
-        if ( matches.length && matches[2]  ) {
-          elem = document.getElementById(matches[2]);
-        }
-
-        this.video = elem ? elem : null;
-      } else if ( entity instanceof Object ) {
-        this.video = entity;
-      }
+      Popcorn.addInstance( this );
 
       this.data = {
         history: [],
