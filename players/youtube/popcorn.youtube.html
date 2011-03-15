@@ -13,6 +13,13 @@
         document.addEventListener( 'DOMContentLoaded', function() {
           var popcorn = Popcorn( Popcorn.youtube( 'video', 'http://www.youtube.com/watch?v=9oar9glUCL0' ) );
           
+          popcorn.footnote({
+            start: 5, // seconds
+            end: 15, // seconds
+            text: 'Visit webmademovies.org for more details',
+            target: 'footnotediv'
+          });
+          
           popcorn.listen( 'durationchange', function() {
             element( 'player-duration' ).innerHTML = popcorn.duration();
           });

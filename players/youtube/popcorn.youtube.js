@@ -25,23 +25,23 @@ var onYouTubePlayerReady;
   // Config parameters
   // 33 ms per update is suitable for 30 fps
   // 250 ms progress interval as specified by WHATWG
-  var timeupdateInterval = 33;
-  var progressInterval = 250;
+  var timeupdateInterval = 33,
+      progressInterval = 250;
 
   // Ready State Constants
-  var READY_STATE_HAVE_NOTHING = 0;
-  var READY_STATE_HAVE_METADATA = 1;
-  var READY_STATE_HAVE_CURRENT_DATA = 2;
-  var READY_STATE_HAVE_FUTURE_DATA = 3;
-  var READY_STATE_HAVE_ENOUGH_DATA = 4;
+  var READY_STATE_HAVE_NOTHING = 0,
+      READY_STATE_HAVE_METADATA = 1,
+      READY_STATE_HAVE_CURRENT_DATA = 2,
+      READY_STATE_HAVE_FUTURE_DATA = 3,
+      READY_STATE_HAVE_ENOUGH_DATA = 4;
 
   // Youtube State Constants
-  var YOUTUBE_STATE_UNSTARTED = -1;
-  var YOUTUBE_STATE_ENDED = 0;
-  var YOUTUBE_STATE_PLAYING = 1;
-  var YOUTUBE_STATE_PAUSED = 2;
-  var YOUTUBE_STATE_BUFFERING = 3;
-  var YOUTUBE_STATE_CUED = 5;
+  var YOUTUBE_STATE_UNSTARTED = -1,
+      YOUTUBE_STATE_ENDED = 0,
+      YOUTUBE_STATE_PLAYING = 1,
+      YOUTUBE_STATE_PAUSED = 2,
+      YOUTUBE_STATE_BUFFERING = 3,
+      YOUTUBE_STATE_CUED = 5;
   
   // Collection of all Youtube players
   var registry = {},
@@ -139,7 +139,7 @@ var onYouTubePlayerReady;
     
     registry[elementId] = this;
     
-    if (loadedPlayers[elementId]) {
+    if ( loadedPlayers[elementId] ) {
       this.dispatchEvent( "load" );
     }
   };
