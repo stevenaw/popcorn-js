@@ -126,6 +126,7 @@
       abs = Math.abs,
       floor = Math.floor,
       round = Math.round,
+      forceHtml = 1,
       registry = {};
   
   // Borrowed from: http://www.quirksmode.org/dom/getstyles.html
@@ -231,6 +232,10 @@
     // Courtesy of Soundcloud
     // https://github.com/soundcloud/soundcloud-custom-player/raw/master/js/sc-player.js
     var state = false;
+    
+    if ( forceHtml ) {
+      return true;
+    }
     try{
       var a = new Audio();
       state = a.canPlayType && (/maybe|probably/).test(a.canPlayType('audio/mpeg'));
@@ -297,10 +302,10 @@
         this.top = boundRect.top;
         this.left = boundRect.left;
         
-        this.offsetWidth = this.swfObj.offsetWidth;
-        this.offsetHeight = this.swfObj.offsetHeight;
-        this.offsetLeft = this.swfObj.offsetLeft;
-        this.offsetTop = this.swfObj.offsetTop;
+        this.offsetWidth = this._resource.offsetWidth;
+        this.offsetHeight = this._resource.offsetHeight;
+        this.offsetLeft = this._resource.offsetLeft;
+        this.offsetTop = this._resource.offsetTop;
       });
       
       registry[ this._playerId ] = this;
@@ -356,19 +361,64 @@
           return ctor;
         })(),
         htmlEngine = (function() {
-          // Resolve a soundcloud url to its info
-          // Resolver: http://api.soundcloud.com/resolve?url=http://soundcloud.com/forss/flickermood&consumer_key=PRaNFlda6Bhf5utPjUsptg
-          function resolveId( that, url ) {
-            return 0;
-          }
-          
           // If container id is not supplied, assumed to be same as player id
           var ctor = function ( containerId, options ) {
+            var self = this;
+            
+            this._resource = new Audio();
+            this._resource.controls = 1;
+            this._resource.autobuffer = 1;
+            
             setup.call( this, containerId, options );
+            
+            // Resolve a soundcloud url to its info
+            Popcorn.getJSONP(
+              // Resolver: http://api.soundcloud.com/resolve?url=http://soundcloud.com/forss/flickermood&consumer_key=PRaNFlda6Bhf5utPjUsptg
+              'http://api.soundcloud.com/resolve.js?url='+this.src+'&consumer_key='+this._options.api_key+'&callback=scResolveUrl',
+              function( data ) {
+                self._mediaId = data.id;
+                self._streamUrl = data.stream_url;
+                self.duration = data.duration/1000;
+                
+                function addSource( url, mime ) {
+                  var source = document.createElement('source');
+                  source.src = url;
+                  
+                  if ( mime ) {
+                    source.mime = mime;
+                  }
+                  
+                  self._resource.appendChild( source );
+                }
+                
+                addSource( self._streamUrl+'?client_id='+self._options.api_key, "audio/mpeg" );
+                addSource( 'http://api.soundcloud.com/tracks/'+self._mediaId+'/?client_id='+self._options.api_key, "video/ogg" );
+                
+                self.dispatchEvent( "load" );
+                
+                self.timeupdate();
+              },
+              false
+            );
+            
+            this._resource.setAttribute( "id", this._playerId );
+            this._container.appendChild( this._resource );
+            
+            this.addEventListener( "timeupdate", function() {
+              self.previousCurrentTime = self.currentTime = self._resource.currentTime;
+            });
+            this.addEventListener( "volumechange", function() {
+              self.setVolume( self._resource.volume );
+            });
+            this.addEventListener( "loadeddata", function() {
+              self.readyState = 2;
+            });
           }
+          
+          return ctor;
         })();
     
-    return flashEngine;
+    return html5AudioAvailable ? htmlEngine : flashEngine;
   })();
   
   Popcorn.soundcloud.init.prototype = Popcorn.soundcloud.prototype;
@@ -394,10 +444,10 @@
           soundcloud.addEventListener( 'onPlayerReady', function( object, data ) {
             var wrapper = registry[object.api_getFlashId()];
             
-            wrapper.swfObj = object;
+            wrapper._resource = object;
             wrapper.duration = object.api_getTrackDuration();
             wrapper.currentTime = object.api_getTrackPosition();
-            // This eliminates volumechangee event from firing on load
+            // This eliminates volumechange event from firing on load
             wrapper.volume = wrapper.previousVolume =  object.api_getVolume()/100;
             
             // The numeric id of the track for use with Soundcloud API
@@ -502,7 +552,7 @@
         
         // HTML video expects to be 0.0 -> 1.0, Flash object expects 0-100
         this.volume = this.previousVolume = val;
-        this.swfObj.api_setVolume( val*100 );
+        this._resource.api_setVolume( val*100 );
         this.dispatchEvent( "volumechange" );
       },
       // Seeks the video
@@ -520,7 +570,7 @@
       // Play the video
       play: function() {
         // In case someone is cheeky enough to try this before loaded
-        if ( !this.swfObj ) {
+        if ( !this._resource ) {
           this.addEventListener( "load", this.play );
           return;
         } else if ( !this.paused ) {
@@ -529,12 +579,12 @@
         }
         
         this.paused = 0;
-        this.swfObj.api_play();
+        this._resource.api_play();
       },
       // Pause the video
       pause: function() {
         // In case someone is cheeky enough to try this before loaded
-        if ( !this.swfObj ) {
+        if ( !this._resource ) {
           this.addEventListener( "load", this.pause );
           return;
         } else if ( this.paused ) {
@@ -543,40 +593,12 @@
         }
         
         this.paused = 1;
-        this.swfObj.api_pause();
-      },
-      // Toggle video muting
-      // Unmuting will leave it at the old value
-      mute: function() {
-        // In case someone is cheeky enough to try this before loaded
-        if ( !this.swfObj ) {
-          this.addEventListener( "load", this.mute );
-          return;
-        }
-        
-        if ( !this.muted() ) {
-          this.oldVol = this.volume;
-          
-          if ( this.paused ) {
-            this.setVolume( 0 );
-          } else {
-            this.volume = 0;
-          }
-        } else {
-          if ( this.paused ) {
-            this.setVolume( this.oldVol );
-          } else {
-            this.volume = this.oldVol;
-          }
-        }
-      },
-      muted: function() {
-        return this.volume === 0;
+        this._resource.api_pause();
       },
       // Force loading by playing the player. Pause afterwards
       load: function() {
         // In case someone is cheeky enough to try this before loaded
-        if ( !this.swfObj ) {
+        if ( !this._resource ) {
           this.addEventListener( "load", this.load );
           return;
         }
@@ -610,16 +632,16 @@
       },
       timeupdate: function() {
         var self = this,
-            checkedVolume = this.swfObj.api_getVolume()/100,
+            checkedVolume = this._resource.api_getVolume()/100,
             seeked = 0;
         
         // If has been changed through setting currentTime attribute
         if ( abs( this.currentTime - this.previousCurrentTime ) > timeCheckInterval ) {
           // Has programatically set the currentTime
-          this.swfObj.api_seekTo( this.currentTime );
+          this._resource.api_seekTo( this.currentTime );
           seeked = 1;
         } else {
-          this.previousCurrentTime = this.currentTime = this.swfObj.api_getTrackPosition();
+          this.previousCurrentTime = this.currentTime = this._resource.api_getTrackPosition();
         }
         
         // If has been changed throughh volume attribute
@@ -638,83 +660,97 @@
             self.timeupdate.call( self );
           }, timeupdateInterval);
         }
-      },
-      
-      getBoundingClientRect: function() {
-        var b,
-            self = this;
-            
-        if ( this.swfObj ) {
-          b = this.swfObj.getBoundingClientRect();
-          
-          return {
-            bottom: b.bottom,
-            left: b.left,
-            right: b.right,
-            top: b.top,
-            
-            //  These not guaranteed to be in there
-            width: b.width || ( b.right - b.left ),
-            height: b.height || ( b.bottom - b.top )
-          };
-        } else {
-          //container = document.getElementById( this.playerId );
-          tmp = this._container.getBoundingClientRect();
-          
-          // Update bottom, right for expected values once the container loads
-          return {
-            left: tmp.left,
-            top: tmp.top,
-            width: self.offsetWidth,
-            height: self.offsetHeight,
-            bottom: tmp.top + this.width,
-            right: tmp.top + this.height
-          };
-        }
       }
     });
   }
   
   function setupHTML() {
-      
-  // Sequence object prototype
-  // Specific for Flash player
+    // Sequence object prototype
+    // Specific for HTML player
     Popcorn.extend( Popcorn.soundcloud.prototype, {
       // Set the volume as a value between 0 and 1
       setVolume: function( val ) {
+        this.volume = this.previousVolume = val;
+        this._resource.volume = val;
       },
       // Seeks the video
       setCurrentTime: function ( time ) {
+        this.currentTime = this.previousCurrentTime = time;
+        this.ended = time >= this.duration;
+        this._resource.currentTime = time;
       },
       // Play the video
       play: function() {
+        this._resource.play();
       },
       // Pause the video
       pause: function() {
-      },
-      // Toggle video muting
-      // Unmuting will leave it at the old value
-      mute: function() {
-      },
-      muted: function() {
+        this._resource.pause();
       },
       // Force loading by playing the player. Pause afterwards
       load: function() {
+        this._resource.pause();
+        this._resource.src = this._streamUrl + '?consumer_key=' + this._options.api_key;
+        this._resource.load();
+        this._resource.play();
       },
       // Hook an event listener for the player event into internal event system
       // Stick to HTML conventions of add event listener and keep lowercase, without prepending "on"
       addEventListener: function( evt, fn ) {
+        var self = this,
+            evtName = evt.type || evt;
+        
+        if ( !this._listeners[evtName] ) {
+          this._listeners[evtName] = [];
+          
+          this._resource.addEventListener( evtName, function() {
+            Popcorn.forEach( self._listeners[evtName], function( fn ) {
+              fn.call( self );
+            });
+          }, false);
+        }
+        
+        this._listeners[evt].push( fn );
+        return fn;
       },
       dispatchEvent: function( evt ) {
+        var evtObj,
+            eventInterface;
+        
+        if ( !evt.type ) {
+          eventInterface  = Popcorn.events.getInterface( evt );
+          if ( eventInterface ) {
+            evtObj = document.createEvent( eventInterface );
+            evtObj.initEvent(evt, true, true, global, 1);
+          }
+        } else {
+          evtObj = evt;
+        }
+        
+        this._resource.dispatchEvent( evtObj );
       },
       timeupdate: function() {
-      },
-      
-      getBoundingClientRect: function() {
+        var self = this;
+        
+        // If has been changed through setting currentTime attribute
+        if ( abs( this.currentTime - this.previousCurrentTime ) > timeCheckInterval ) {
+          // Has programatically set the currentTime
+          this.setCurrentTime( this.currentTime );
+        }
+        
+        // If has been changed through volume attribute
+        if ( this.volume !== this.previousVolume ) {
+          this.setVolume( this.volume );
+        }
+        
+        if( !self.ended ) {
+          setTimeout( function() {
+            self.timeupdate.call( self );
+          }, timeupdateInterval);
+        }
       }
     });
   }
-  
   
   if ( html5AudioAvailable ) {
     setupHTML();
@@ -722,8 +758,68 @@
     setupFlash();
   }
   
-  // Player-agnostic functionality
+  // Engine-agnostic functionality
   Popcorn.extend( Popcorn.soundcloud.prototype, {
+    // Toggle video muting
+    // Unmuting will leave it at the old value
+    mute: function() {
+      // In case someone is cheeky enough to try this before loaded
+      if ( !this._resource ) {
+        this.addEventListener( "load", this.mute );
+        return;
+      }
+      
+      if ( !this.muted() ) {
+        this.oldVol = this.volume;
+        
+        if ( this.paused ) {
+          this.setVolume( 0 );
+        } else {
+          this.volume = 0;
+        }
+      } else {
+        if ( this.paused ) {
+          this.setVolume( this.oldVol );
+        } else {
+          this.volume = this.oldVol;
+        }
+      }
+    },
+    muted: function() {
+      return this.volume === 0;
+    },
+    getBoundingClientRect: function() {
+      var b,
+          self = this;
+          
+      if ( this._resource ) {
+        b = this._resource.getBoundingClientRect();
+        
+        return {
+          bottom: b.bottom,
+          left: b.left,
+          right: b.right,
+          top: b.top,
+          
+          //  These not guaranteed to be in there
+          width: b.width || ( b.right - b.left ),
+          height: b.height || ( b.bottom - b.top )
+        };
+      } else {
+        //container = document.getElementById( this.playerId );
+        tmp = this._container.getBoundingClientRect();
+        
+        // Update bottom, right for expected values once the container loads
+        return {
+          left: tmp.left,
+          top: tmp.top,
+          width: self.offsetWidth,
+          height: self.offsetHeight,
+          bottom: tmp.top + this.width,
+          right: tmp.top + this.height
+        };
+      }
+    },
     addComment: function( obj, displayFn ) {
       var self = this,
           comment = {
@@ -755,7 +851,7 @@
       });
     },
     registerPopcornWithPlayer: function( popcorn ) {
-      if ( !this.swfObj ) {
+      if ( !this._resource ) {
         this.addEventListener( "load", function() {
           this.registerPopcornWithPlayer( popcorn );
         });

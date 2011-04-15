@@ -71,18 +71,15 @@
         }) );
         
         popcorn.listen( "load", function() {
+        
+          popcorn.video.registerPopcornWithPlayer( popcorn );
           
           document.getElementById( "media_duration" ).innerHTML = popcorn.duration();
           document.getElementById( "media_volume" ).innerHTML = popcorn.volume();
           document.getElementById( "media_currentTime" ).innerHTML = popcorn.currentTime();
-          document.getElementById( "media_readyState" ).innerHTML = popcorn.video.readyState;
           
           popcorn.listen( "timeupdate", function() {
             document.getElementById( "media_currentTime" ).innerHTML = popcorn.currentTime();
-          });
-          
-          popcorn.video.addEventListener( "readystatechange", function() {
-            document.getElementById( "media_readyState" ).innerHTML = popcorn.video.readyState;
           });
           
           popcorn.listen( "volumechange", function() {
@@ -101,8 +98,7 @@
           start: 5, // seconds
           end: 15, // seconds
           text: 'This is overlaid on top of the audio visualization. You can hightlight it!',
-          display: 'inline',
-          language: "en"
+          display: 'inline'
         });
         
         popcorn.footnote({
@@ -155,7 +151,6 @@
           src: 'https://www.drumbeat.org/media//images/drumbeat-logo-splash.png',
           target: 'imagediv'
         })
-        .video.registerPopcornWithPlayer( popcorn );
       }, false);
     </script>
   </head>
@@ -173,7 +168,6 @@
         Current Time (s): <span id="media_currentTime"></span>
         <br />Duration (s): <span id="media_duration"></span>
         <br />Volume (0-1): <span id="media_volume"></span>
-        <br />Ready State: <span id="media_readyState">0</span>
       </div>
       <div style="position: absolute; left: 350px;">
         <strong>Comment Area</strong>
