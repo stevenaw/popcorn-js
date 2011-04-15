@@ -1,6 +1,4 @@
 // Popcorn Soundcloud Player Wrapper
-
-// Resolver: http://api.soundcloud.com/resolve?url=http://soundcloud.com/forss/flickermood&consumer_key=PRaNFlda6Bhf5utPjUsptg
 ( function( Popcorn, global ) {
   /**
   * Soundcloud wrapper for Popcorn.
@@ -229,6 +227,22 @@
     }
   }
   
+  var html5AudioAvailable = (function() {
+    // Courtesy of Soundcloud
+    // https://github.com/soundcloud/soundcloud-custom-player/raw/master/js/sc-player.js
+    var state = false;
+    try{
+      var a = new Audio();
+      state = a.canPlayType && (/maybe|probably/).test(a.canPlayType('audio/mpeg'));
+      // let's enable the html5 audio on selected mobile devices first, unlikely to support Flash
+      // the desktop browsers are still better with Flash, e.g. see the Safari 10.6 bug
+      // comment the following line out, if you want to force the html5 mode
+      state = state && (/iPad|iphone|mobile|pre\//i).test(navigator.userAgent);
+    }catch(e){
+      // there's no audio support here sadly
+    }
+    return state;
+  })();
   
   Popcorn.soundcloud = function( containerId, options ) {
     return new Popcorn.soundcloud.init( containerId, options );
@@ -236,111 +250,129 @@
   
   // A constructor, but we need to wrap it to allow for "static" functions
   Popcorn.soundcloud.init = (function() {
-  
+    function setup( containerId, options ) {
+      if ( !containerId ) {
+        throw "Must supply an id!";
+      }
+      
+      this._container = document.getElementById( containerId );
+      
+      if ( !this._container ) {
+        throw "Could not find that container in the DOM!";
+      }
+      
+      options = options || {};
+      
+      options.commentformat = options.commentformat || formatComment
+      
+      this._mediaId = 0;
+      this._listeners = {};
+      this._playerId = Popcorn.guid( containerId );
+      this._containerId = containerId;
+      this._options = options;
+      this._comments = [];
+      this._popcorn;
+      
+      this._options.src = options.src || this._container.getAttribute( "data-src" );
+      
+      pullFromContainer( this, this._options );
+      
+      this.duration = 0;
+      this.volume = 1;
+      this.currentTime = 0;
+      this.ended = 0;
+      this.paused = 1;
+      this.readyState = 0;
+      this.playbackRate = 1;
+      
+      this.top = 0;
+      this.left = 0;
+      
+      this.autoplay;
+      this.played = 0;
+      
+      this.addEventListener( "load", function() {
+        var boundRect = this.getBoundingClientRect();
+    
+        this.top = boundRect.top;
+        this.left = boundRect.left;
+        
+        this.offsetWidth = this.swfObj.offsetWidth;
+        this.offsetHeight = this.swfObj.offsetHeight;
+        this.offsetLeft = this.swfObj.offsetLeft;
+        this.offsetTop = this.swfObj.offsetTop;
+      });
+      
+      registry[ this._playerId ] = this;
+    }
     var flashEngine = (function() {
-      function hasAllDependencies() {
-        return global.swfobject && global.soundcloud;
-      }
-      function isReady( self ) {
-        if ( !hasAllDependencies() ) {      
-          setTimeout( function() {
-            isReady( self );
-          }, 15 );
-          return;
-        }
-        
-        var flashvars = {
-          enable_api: true, 
-          object_id: self._playerId,
-          url: self.src,
-          // Hide comments in player if showing them elsewhere
-          show_comments: !self._options.api_key && !self._options.commentdiv
-        },
-        params = {
-          allowscriptaccess: "always",
-          // This is so we can overlay html ontop of Flash
-          wmode: 'transparent'
-        },
-        attributes = {
-          id: self._playerId,
-          name: self._playerId
-        },
-        actualTarget = document.createElement( 'div' );
-        
-        actualTarget.setAttribute( "id", self._playerId );
-        self._container.appendChild( actualTarget );
-        
-        swfobject.embedSWF( "http://player.soundcloud.com/player.swf", self._playerId, self.offsetWidth, self.height, "9.0.0", "expressInstall.swf", flashvars, params, attributes );
-      }
-      
-      // If container id is not supplied, assumed to be same as player id
-      var ctor = function ( containerId, options ) {
-        if ( !containerId ) {
-          throw "Must supply an id!";
-        } else if ( /file/.test( location.protocol ) ) {
-          throw "Must run from a web server!";
-        }
-        
-        var container = this._container = document.getElementById( containerId );
-        
-        if ( !container ) {
-          throw "Could not find that container in the DOM!";
-        }
-        
-        options = options || {};
-        
-        options.commentformat = options.commentformat || formatComment
-        
-        this._mediaId = 0;
-        this._listeners = {};
-        this._playerId = Popcorn.guid( containerId );
-        this._containerId = containerId;
-        this._options = options;
-        this._comments = [];
-        this._popcorn;
-        
-        this._options.src = options.src || container.getAttribute( "data-src" );
-        
-        pullFromContainer( this, this._options );
-        
-        this.duration = 0;
-        this.volume = 1;
-        this.currentTime = 0;
-        this.ended = 0;
-        this.paused = 1;
-        this.readyState = 0;
-        this.playbackRate = 1;
-        
-        this.top = 0;
-        this.left = 0;
-        
-        this.autoplay;
-        this.played = 0;
-        
-        this.addEventListener( "load", function() {
-          var boundRect = this.getBoundingClientRect();
-      
-          this.top = boundRect.top;
-          this.left = boundRect.left;
+          function hasAllDependencies() {
+            return global.swfobject && global.soundcloud;
+          }
+          function isReady( self ) {
+            if ( !hasAllDependencies() ) {      
+              setTimeout( function() {
+                isReady( self );
+              }, 15 );
+              return;
+            }
+            
+            var flashvars = {
+              enable_api: true, 
+              object_id: self._playerId,
+              url: self.src,
+              // Hide comments in player if showing them elsewhere
+              show_comments: !self._options.api_key && !self._options.commentdiv
+            },
+            params = {
+              allowscriptaccess: "always",
+              // This is so we can overlay html ontop of Flash
+              wmode: 'transparent'
+            },
+            attributes = {
+              id: self._playerId,
+              name: self._playerId
+            },
+            actualTarget = document.createElement( 'div' );
+            
+            actualTarget.setAttribute( "id", self._playerId );
+            self._container.appendChild( actualTarget );
+            
+            swfobject.embedSWF( "http://player.soundcloud.com/player.swf", self._playerId, self.offsetWidth, self.height, "9.0.0", "expressInstall.swf", flashvars, params, attributes );
+          }
           
-          this.offsetWidth = this.swfObj.offsetWidth;
-          this.offsetHeight = this.swfObj.offsetHeight;
-          this.offsetLeft = this.swfObj.offsetLeft;
-          this.offsetTop = this.swfObj.offsetTop;
-        });
-        
-        registry[ this._playerId ] = this;
-        isReady( this );
-      }
-      
-      return ctor;
-    })();
+          // If container id is not supplied, assumed to be same as player id
+          // Resolver: http://api.soundcloud.com/resolve?url=http://soundcloud.com/forss/flickermood&consumer_key=PRaNFlda6Bhf5utPjUsptg
+          var ctor = function ( containerId, options ) {
+            if ( /file/.test( location.protocol ) ) {
+              throw "Must run from a web server!";
+            }
+            
+            setup.call( this, containerId, options );
+            
+            isReady( this );
+          }
+          
+          return ctor;
+        })(),
+        htmlEngine = (function() {
+          // Resolve a soundcloud url to its info
+          // Resolver: http://api.soundcloud.com/resolve?url=http://soundcloud.com/forss/flickermood&consumer_key=PRaNFlda6Bhf5utPjUsptg
+          function resolveId( that, url ) {
+            return 0;
+          }
+          
+          // If container id is not supplied, assumed to be same as player id
+          var ctor = function ( containerId, options ) {
+            setup.call( this, containerId, options );
+          }
+        })();
     
     return flashEngine;
   })();
   
   Popcorn.soundcloud.init.prototype = Popcorn.soundcloud.prototype;
-  
+    
   function setupFlash() {
     var loadDependencies = (function () {
       var hasLoaded = 0;
@@ -643,7 +675,52 @@
     });
   }
   
-  setupFlash();
+  function setupHTML() {
+      
+  // Sequence object prototype
+  // Specific for Flash player
+    Popcorn.extend( Popcorn.soundcloud.prototype, {
+      // Set the volume as a value between 0 and 1
+      setVolume: function( val ) {
+      },
+      // Seeks the video
+      setCurrentTime: function ( time ) {
+      },
+      // Play the video
+      play: function() {
+      },
+      // Pause the video
+      pause: function() {
+      },
+      // Toggle video muting
+      // Unmuting will leave it at the old value
+      mute: function() {
+      },
+      muted: function() {
+      },
+      // Force loading by playing the player. Pause afterwards
+      load: function() {
+      },
+      // Hook an event listener for the player event into internal event system
+      // Stick to HTML conventions of add event listener and keep lowercase, without prepending "on"
+      addEventListener: function( evt, fn ) {
+      },
+      dispatchEvent: function( evt ) {
+      },
+      timeupdate: function() {
+      },
+      
+      getBoundingClientRect: function() {
+      }
+    });
+  }
+  
+  
+  if ( html5AudioAvailable ) {
+    setupHTML();
+  } else {
+    setupFlash();
+  }
   
   // Player-agnostic functionality
   Popcorn.extend( Popcorn.soundcloud.prototype, {
