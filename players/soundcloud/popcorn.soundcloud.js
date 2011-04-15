@@ -392,7 +392,9 @@
                 }
                 
                 addSource( self._streamUrl+'?client_id='+self._options.api_key, "audio/mpeg" );
-                addSource( 'http://api.soundcloud.com/tracks/'+self._mediaId+'/?client_id='+self._options.api_key, "video/ogg" );
+                addSource( 'http://api.soundcloud.com/tracks/13607892/download?client_id='+self._options.api_key, "video/ogg" );
+                
+                //self.src = "http://api.soundcloud.com/tracks/13607892/download?client_id="+self._options.api_key;
                 
                 self.dispatchEvent( "load" );
                 
