@@ -126,7 +126,7 @@
       abs = Math.abs,
       floor = Math.floor,
       round = Math.round,
-      forceHtml = 1,
+      forceHtml = 0,
       registry = {};
   
   // Borrowed from: http://www.quirksmode.org/dom/getstyles.html
@@ -391,10 +391,8 @@
                   self._resource.appendChild( source );
                 }
                 
-                addSource( self._streamUrl+'?client_id='+self._options.api_key, "audio/mpeg" );
-                addSource( 'http://api.soundcloud.com/tracks/13607892/download?client_id='+self._options.api_key, "video/ogg" );
-                
-                //self.src = "http://api.soundcloud.com/tracks/13607892/download?client_id="+self._options.api_key;
+                addSource( self._streamUrl + '?client_id=' + self._options.api_key );
+                addSource( 'http://api.soundcloud.com/tracks/' + self._mediaId + '/download?client_id='+self._options.api_key );
                 
                 self.dispatchEvent( "load" );
                 
