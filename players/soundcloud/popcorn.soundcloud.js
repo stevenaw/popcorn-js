@@ -198,9 +198,9 @@
         tmp,
         undef;
     
-    that.width = options.width || container.getAttribute( "data-width" ) || getStyle( container, "width" ) || "100%";
-    that.height = options.height || container.getAttribute( "data-height" ) || getStyle( container, "height" ) || "81px";
-    that.src = options.src || container.getAttribute( "data-src" );
+    that.width = options.width || getStyle( container, "width" ) || "100%";
+    that.height = options.height || getStyle( container, "height" ) || "81px";
+    that.src = options.src;
     that.autoplay = container.getAttribute( "data-autoplay" ) || undef;
     
     if ( parseFloat( that.height, 10 ) !== 81 ) {
@@ -232,6 +232,8 @@
     function setup( containerId, options ) {
       if ( !containerId ) {
         throw "Must supply an id!";
+      } else if ( !options || !options.src ) {
+        throw "An audio source must be supplied!";
       }
       
       this._container = document.getElementById( containerId );
@@ -239,8 +241,6 @@
       if ( !this._container ) {
         throw "Could not find that container in the DOM!";
       }
-      
-      options = options || {};
       
       options.commentformat = options.commentformat || formatComment
       
@@ -251,8 +251,6 @@
       this._options = options;
       this._comments = [];
       this._popcorn;
-      
-      this._options.src = options.src || this._container.getAttribute( "data-src" );
       
       pullFromContainer( this, this._options );
       
