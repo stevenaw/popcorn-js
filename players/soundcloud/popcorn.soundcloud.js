@@ -27,12 +27,13 @@
   * The player can be further configured when it is created by adding other attrributes. A complete list (all optional):
   *
   * var popcorn = Popcorn( Popcorn.soundcloud( "player_1", {
-  *   src: "http://soundcloud.com/forss/flickermood",     // The Soundcloud track to play
-  *   width: "100%",                                      // The width for the player. May also be as '##px'
-  *   height: "81px",                                     // The height for the player. May also be as '###%'
-  *   api_key: "abcdefsdfsdf",                            // Soundcloud API key, required for retrieving comments
-  *   commentdiv: "divId_for_output",                     // Div Id for outputting comments
-  *   commentformat: function( comment ) {}               // Function to format a comment. Returns HTML string
+  *   src:            "http://soundcloud.com/forss/flickermood",  // The Soundcloud track to play
+  *   width:          "100%",                                     // The width for the player. May also be as '##px'
+  *   height:         "81px",                                     // The height for the player. May also be as '###%'
+  *   type:           Popcorn.soundcloud.types.html               // The engine type efor the player. Defaults to bestFit
+  *   api_key:        "abcdefsdfsdf",                             // Soundcloud API key, required for retrieving comments
+  *   commentdiv:     "divId_for_output",                         // Div Id for outputting comments
+  *   commentformat:  function( comment ) {}                      // Function to format a comment. Returns HTML string
   * }));
   *
   * Height, width and track source may be specified in other ways. Height and width may be throughh CSS or inline on the container
@@ -227,35 +228,7 @@
     }
   }
   
-  var html5AudioAvailable = (function() {
-    // Courtesy of Soundcloud
-    // https://github.com/soundcloud/soundcloud-custom-player/raw/master/js/sc-player.js
-    var state = false;
-    try{
-      var a = new Audio();
-      state = a.canPlayType && (/maybe|probably/).test(a.canPlayType('audio/mpeg'));
-      // let's enable the html5 audio on selected mobile devices first, unlikely to support Flash
-      // the desktop browsers are still better with Flash, e.g. see the Safari 10.6 bug
-      // comment the following line out, if you want to force the html5 mode
-      state = state && (/iPad|iphone|mobile|pre\//i).test(navigator.userAgent);
-    }catch(e){
-      // there's no audio support here sadly
-    }
-    return state;
-  })();
-  
-  Popcorn.soundcloud = function( containerId, options ) {
-    return new Popcorn.soundcloud.init( containerId, options );
-  };
-  
-  Popcorn.soundcloud.types = {
-    flash: 0,
-    html5: 1,
-    bestFit: 2
-  };
-  
-  // A constructor, but we need to wrap it to allow for "static" functions
-  Popcorn.soundcloud.init = (function() {
+  Popcorn.soundcloud = (function() {
     function setup( containerId, options ) {
       if ( !containerId ) {
         throw "Must supply an id!";
@@ -311,7 +284,27 @@
       
       registry[ this._playerId ] = this;
     }
-    var flashEngine = (function() {
+    
+    var html5AudioAvailable = (function() {
+          // Courtesy of Soundcloud
+          // https://github.com/soundcloud/soundcloud-custom-player/raw/master/js/sc-player.js
+          var state = false;
+          try{
+            var a = new Audio();
+            state = a.canPlayType && (/maybe|probably/).test(a.canPlayType('audio/mpeg'));
+            // let's enable the html5 audio on selected mobile devices first, unlikely to support Flash
+            // the desktop browsers are still better with Flash, e.g. see the Safari 10.6 bug
+            // comment the following line out, if you want to force the html5 mode
+            
+            // Commenting this out, we're letting it be coerced as a different step
+            //state = state && (/iPad|iphone|mobile|pre\//i).test(navigator.userAgent);
+          }catch(e){
+            // there's no audio support here sadly
+          }
+          return state;
+        })(),
+        coerceHtml = html5AudioAvailable && (/iPad|iphone|mobile|pre\//i).test(navigator.userAgent);
+        flashEngine = (function() {
           function hasAllDependencies() {
             return global.swfobject && global.soundcloud;
           }
@@ -417,125 +410,142 @@
           }
           
           return ctor;
-        })();
+        })(),
+        bestFit = html5AudioAvailable && coerceHtml ? htmlEngine : flashEngine;
     
-    return html5AudioAvailable ? htmlEngine : flashEngine;
+    htmlEngine.prototype = getHTMLInterface();
+    flashEngine.prototype = getFlashInterface();
+    
+    return function( containerId, options ) {
+      var types = Popcorn.soundcloud.types;
+      
+      options.type = options.type || types.flash;
+      
+      if ( options.type === types.flash ) {
+        return new flashEngine( containerId, options );
+      } else if ( options.type === types.html && html5AudioAvailable ) {
+        return new htmlEngine( containerId, options );
+      }
+      
+      // Default to best fit
+      return new bestFit( containerId, options );
+    };
   })();
   
-  Popcorn.soundcloud.init.prototype = Popcorn.soundcloud.prototype;
+  Popcorn.soundcloud.types = {
+    flash: 0,
+    html: 1,
+    bestFit: 2
+  };
     
-  function setupFlash() {
-    var loadDependencies = (function () {
-      var hasLoaded = 0;
-      return function(){
-        if ( hasLoaded ) {
+  function getFlashInterface() {
+    var intFace = {},
+        hasLoaded = 0;
+    
+    if ( hasLoaded ) {
+      return intFace;
+    }
+    
+    hasLoaded = 1;
+    
+    Popcorn.getScript( "http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js" );
+  
+    // Source file originally from 'https://github.com/soundcloud/Widget-JS-API/raw/master/soundcloud.player.api.js'
+    Popcorn.getScript( "lib/soundcloud.player.api.js", function() {
+      // Play event is fired twice when player is first started. Ignore second one
+      var ignorePlayEvt = 1;
+      
+      // Register the wrapper's load event with the player
+      soundcloud.addEventListener( 'onPlayerReady', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        
+        wrapper._resource = object;
+        wrapper.duration = object.api_getTrackDuration();
+        wrapper.currentTime = object.api_getTrackPosition();
+        // This eliminates volumechange event from firing on load
+        wrapper.volume = wrapper.previousVolume =  object.api_getVolume()/100;
+        
+        // The numeric id of the track for use with Soundcloud API
+        wrapper._mediaId = data.mediaId;
+        
+        wrapper.dispatchEvent( 'load' );
+        wrapper.dispatchEvent( 'canplay' );
+        wrapper.dispatchEvent( 'durationchange' );
+        
+        wrapper.timeupdate();
+      });
+      
+      // Register events for when the flash player plays a track for the first time
+      soundcloud.addEventListener( 'onMediaStart', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        wrapper.played = 1;
+        wrapper.dispatchEvent( 'playing' );
+      });
+      
+      // Register events for when the flash player plays a track
+      soundcloud.addEventListener( 'onMediaPlay', function( object, data ) {
+        if ( ignorePlayEvt ) {
+          ignorePlayEvt = 0;
           return;
         }
         
-        hasLoaded = 1;
-        
-        Popcorn.getScript( "http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js" );
-    
-        // Source file originally from 'https://github.com/soundcloud/Widget-JS-API/raw/master/soundcloud.player.api.js'
-        Popcorn.getScript( "lib/soundcloud.player.api.js", function() {
-          // Play event is fired twice when player is first started. Ignore second one
-          var ignorePlayEvt = 1;
-          
-          // Register the wrapper's load event with the player
-          soundcloud.addEventListener( 'onPlayerReady', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            
-            wrapper._resource = object;
-            wrapper.duration = object.api_getTrackDuration();
-            wrapper.currentTime = object.api_getTrackPosition();
-            // This eliminates volumechange event from firing on load
-            wrapper.volume = wrapper.previousVolume =  object.api_getVolume()/100;
-            
-            // The numeric id of the track for use with Soundcloud API
-            wrapper._mediaId = data.mediaId;
-            
-            wrapper.dispatchEvent( 'load' );
-            wrapper.dispatchEvent( 'canplay' );
-            wrapper.dispatchEvent( 'durationchange' );
-            
-            wrapper.timeupdate();
-          });
-          
-          // Register events for when the flash player plays a track for the first time
-          soundcloud.addEventListener( 'onMediaStart', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            wrapper.played = 1;
-            wrapper.dispatchEvent( 'playing' );
-          });
-          
-          // Register events for when the flash player plays a track
-          soundcloud.addEventListener( 'onMediaPlay', function( object, data ) {
-            if ( ignorePlayEvt ) {
-              ignorePlayEvt = 0;
-              return;
-            }
-            
-            var wrapper = registry[object.api_getFlashId()];
-            wrapper.dispatchEvent( 'play' );
-          });
-          
-          // Register events for when the flash player pauses a track
-          soundcloud.addEventListener( 'onMediaPause', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            wrapper.dispatchEvent( 'pause' );
-          });
-          
-          // Register events for when the flash player is buffering
-          soundcloud.addEventListener( 'onMediaBuffering', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            
-            wrapper.dispatchEvent( 'progress' );
-            
-            if ( wrapper.readyState === 0 ) { 
-              wrapper.readyState = 3;
-              wrapper.dispatchEvent( "readystatechange" );
-            }
-          });
-          
-          // Register events for when the flash player is done buffering
-          soundcloud.addEventListener( 'onMediaDoneBuffering', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            wrapper.dispatchEvent( 'canplaythrough' );
-          });
-          
-          // Register events for when the flash player has finished playing
-          soundcloud.addEventListener( 'onMediaEnd', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            wrapper.paused = 1;
-            //wrapper.pause();
-            wrapper.dispatchEvent( 'ended' );
-          });
-          
-          // Register events for when the flash player has seeked
-          soundcloud.addEventListener( 'onMediaSeek', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            
-            wrapper.setCurrentTime( object.api_getTrackPosition() );
-            
-            if ( wrapper.paused ) {
-              wrapper.dispatchEvent( "timeupdate" );
-            }
-          });
-          
-          // Register events for when the flash player has errored
-          soundcloud.addEventListener( 'onPlayerError', function( object, data ) {
-            var wrapper = registry[object.api_getFlashId()];
-            wrapper.dispatchEvent( 'error' );
-          });
-        });
-      }
-    })();
-    
-    loadDependencies();
+        var wrapper = registry[object.api_getFlashId()];
+        wrapper.dispatchEvent( 'play' );
+      });
       
-  // Sequence object prototype
-  // Specific for Flash player
-    Popcorn.extend( Popcorn.soundcloud.prototype, {
+      // Register events for when the flash player pauses a track
+      soundcloud.addEventListener( 'onMediaPause', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        wrapper.dispatchEvent( 'pause' );
+      });
+      
+      // Register events for when the flash player is buffering
+      soundcloud.addEventListener( 'onMediaBuffering', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        
+        wrapper.dispatchEvent( 'progress' );
+        
+        if ( wrapper.readyState === 0 ) { 
+          wrapper.readyState = 3;
+          wrapper.dispatchEvent( "readystatechange" );
+        }
+      });
+      
+      // Register events for when the flash player is done buffering
+      soundcloud.addEventListener( 'onMediaDoneBuffering', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        wrapper.dispatchEvent( 'canplaythrough' );
+      });
+      
+      // Register events for when the flash player has finished playing
+      soundcloud.addEventListener( 'onMediaEnd', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        wrapper.paused = 1;
+        //wrapper.pause();
+        wrapper.dispatchEvent( 'ended' );
+      });
+      
+      // Register events for when the flash player has seeked
+      soundcloud.addEventListener( 'onMediaSeek', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        
+        wrapper.setCurrentTime( object.api_getTrackPosition() );
+        
+        if ( wrapper.paused ) {
+          wrapper.dispatchEvent( "timeupdate" );
+        }
+      });
+      
+      // Register events for when the flash player has errored
+      soundcloud.addEventListener( 'onPlayerError', function( object, data ) {
+        var wrapper = registry[object.api_getFlashId()];
+        wrapper.dispatchEvent( 'error' );
+      });
+    });
+  
+    // Sequence object prototype
+    // Specific for Flash player
+    Popcorn.extend( intFace, {
       // Set the volume as a value between 0 and 1
       setVolume: function( val ) {
         if ( !val && val !== 0 ) {
@@ -663,12 +673,25 @@
         }
       }
     });
+
+    Popcorn.extend( intFace, getGeneralInterface() );
+    
+    return intFace;
   }
   
-  function setupHTML() {
+  function getHTMLInterface() {
+    var intFace = {},
+        hasLoaded = 0;
+    
+    if ( hasLoaded ) {
+      return intFace;
+    }
+    
+    hasLoaded = 1;
+    
     // Sequence object prototype
     // Specific for HTML player
-    Popcorn.extend( Popcorn.soundcloud.prototype, {
+    Popcorn.extend( intFace, {
       // Set the volume as a value between 0 and 1
       setVolume: function( val ) {
         this.volume = this.previousVolume = val;
@@ -751,137 +774,148 @@
         }
       }
     });
+  
+    Popcorn.extend( intFace, getGeneralInterface() );
+    
+    return intFace;
   }
   
-  if ( html5AudioAvailable ) {
-    setupHTML();
-  } else {
-    setupFlash();
-  }
-  
-  // Engine-agnostic functionality
-  Popcorn.extend( Popcorn.soundcloud.prototype, {
-    // Toggle video muting
-    // Unmuting will leave it at the old value
-    mute: function() {
-      // In case someone is cheeky enough to try this before loaded
-      if ( !this._resource ) {
-        this.addEventListener( "load", this.mute );
-        return;
-      }
-      
-      if ( !this.muted() ) {
-        this.oldVol = this.volume;
-        
-        if ( this.paused ) {
-          this.setVolume( 0 );
-        } else {
-          this.volume = 0;
-        }
-      } else {
-        if ( this.paused ) {
-          this.setVolume( this.oldVol );
-        } else {
-          this.volume = this.oldVol;
-        }
-      }
-    },
-    muted: function() {
-      return this.volume === 0;
-    },
-    getBoundingClientRect: function() {
-      var b,
-          self = this;
-          
-      if ( this._resource ) {
-        b = this._resource.getBoundingClientRect();
-        
-        return {
-          bottom: b.bottom,
-          left: b.left,
-          right: b.right,
-          top: b.top,
-          
-          //  These not guaranteed to be in there
-          width: b.width || ( b.right - b.left ),
-          height: b.height || ( b.bottom - b.top )
-        };
-      } else {
-        //container = document.getElementById( this.playerId );
-        tmp = this._container.getBoundingClientRect();
-        
-        // Update bottom, right for expected values once the container loads
-        return {
-          left: tmp.left,
-          top: tmp.top,
-          width: self.offsetWidth,
-          height: self.offsetHeight,
-          bottom: tmp.top + this.width,
-          right: tmp.top + this.height
-        };
-      }
-    },
-    addComment: function( obj, displayFn ) {
-      var self = this,
-          comment = {
-            start: obj.start || 0,
-            date: obj.date || new Date(),
-            text: obj.text || "",
-            user: {
-              name: obj.user.name || "",
-              profile: obj.user.profile || "",
-              avatar: obj.user.avatar || ""
-            },
-            display: function() {
-              return ( displayFn || self._options.commentformat )( comment );
-            }
-          }
-      
-      this._comments.push( comment );
-      
-      if ( !this._popcorn ) {
-        return;
-      }
-      
-      this._popcorn.subtitle({
-        start: comment.start,
-        target: this._options.commentdiv,
-        display: 'inline',
-        language: 'en',
-        text: comment.display()
-      });
-    },
-    registerPopcornWithPlayer: function( popcorn ) {
-      if ( !this._resource ) {
-        this.addEventListener( "load", function() {
-          this.registerPopcornWithPlayer( popcorn );
-        });
-        return;
-      }
-      
-      this._popcorn = popcorn;
-      
-      if ( this._options && this._options.api_key && this._options.commentdiv ) {
-        var self = this;
-        
-        Popcorn.xhr({
-          url: "http://api.soundcloud.com/tracks/" + self._mediaId + "/comments.js?consumer_key=" + self._options.api_key,
-          success: function( data ) {
-            Popcorn.forEach( data.json, function ( obj ) {
-              self.addComment({
-                start: obj.timestamp/1000,
-                date: new Date( obj.created_at ),
-                text: obj.body,
-                user: {
-                  name: obj.user.username,
-                  profile: obj.user.permalink_url,
-                  avatar: obj.user.avatar_url
-                }
-              });
-            });
-          }
-        });
-      }
+  function getGeneralInterface() {
+    var intFace = {},
+        hasLoaded = 0;
+    
+    if ( hasLoaded ) {
+      return intFace;
     }
-  });
+    
+    hasLoaded = 1;
+    
+    // Sequence object prototype
+    // Engine-agnostic functionality
+    Popcorn.extend( intFace, {
+      // Toggle video muting
+      // Unmuting will leave it at the old value
+      mute: function() {
+        // In case someone is cheeky enough to try this before loaded
+        if ( !this._resource ) {
+          this.addEventListener( "load", this.mute );
+          return;
+        }
+        
+        if ( !this.muted() ) {
+          this.oldVol = this.volume;
+          
+          if ( this.paused ) {
+            this.setVolume( 0 );
+          } else {
+            this.volume = 0;
+          }
+        } else {
+          if ( this.paused ) {
+            this.setVolume( this.oldVol );
+          } else {
+            this.volume = this.oldVol;
+          }
+        }
+      },
+      muted: function() {
+        return this.volume === 0;
+      },
+      getBoundingClientRect: function() {
+        var b,
+            self = this;
+            
+        if ( this._resource ) {
+          b = this._resource.getBoundingClientRect();
+          
+          return {
+            bottom: b.bottom,
+            left: b.left,
+            right: b.right,
+            top: b.top,
+            
+            //  These not guaranteed to be in there
+            width: b.width || ( b.right - b.left ),
+            height: b.height || ( b.bottom - b.top )
+          };
+        } else {
+          //container = document.getElementById( this.playerId );
+          tmp = this._container.getBoundingClientRect();
+          
+          // Update bottom, right for expected values once the container loads
+          return {
+            left: tmp.left,
+            top: tmp.top,
+            width: self.offsetWidth,
+            height: self.offsetHeight,
+            bottom: tmp.top + this.width,
+            right: tmp.top + this.height
+          };
+        }
+      },
+      addComment: function( obj, displayFn ) {
+        var self = this,
+            comment = {
+              start: obj.start || 0,
+              date: obj.date || new Date(),
+              text: obj.text || "",
+              user: {
+                name: obj.user.name || "",
+                profile: obj.user.profile || "",
+                avatar: obj.user.avatar || ""
+              },
+              display: function() {
+                return ( displayFn || self._options.commentformat )( comment );
+              }
+            }
+        
+        this._comments.push( comment );
+        
+        if ( !this._popcorn ) {
+          return;
+        }
+        
+        this._popcorn.subtitle({
+          start: comment.start,
+          target: this._options.commentdiv,
+          display: 'inline',
+          language: 'en',
+          text: comment.display()
+        });
+      },
+      registerPopcornWithPlayer: function( popcorn ) {
+        if ( !this._resource ) {
+          this.addEventListener( "load", function() {
+            this.registerPopcornWithPlayer( popcorn );
+          });
+          return;
+        }
+        
+        this._popcorn = popcorn;
+        
+        if ( this._options && this._options.api_key && this._options.commentdiv ) {
+          var self = this;
+          
+          Popcorn.xhr({
+            url: "http://api.soundcloud.com/tracks/" + self._mediaId + "/comments.js?consumer_key=" + self._options.api_key,
+            success: function( data ) {
+              Popcorn.forEach( data.json, function ( obj ) {
+                self.addComment({
+                  start: obj.timestamp/1000,
+                  date: new Date( obj.created_at ),
+                  text: obj.body,
+                  user: {
+                    name: obj.user.username,
+                    profile: obj.user.permalink_url,
+                    avatar: obj.user.avatar_url
+                  }
+                });
+              });
+            }
+          });
+        }
+      }
+    });
+    return intFace;
+  }
 })( Popcorn, window );
