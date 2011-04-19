@@ -126,7 +126,6 @@
       abs = Math.abs,
       floor = Math.floor,
       round = Math.round,
-      forceHtml = 0,
       registry = {};
   
   // Borrowed from: http://www.quirksmode.org/dom/getstyles.html
@@ -232,10 +231,6 @@
     // Courtesy of Soundcloud
     // https://github.com/soundcloud/soundcloud-custom-player/raw/master/js/sc-player.js
     var state = false;
-    
-    if ( forceHtml ) {
-      return true;
-    }
     try{
       var a = new Audio();
       state = a.canPlayType && (/maybe|probably/).test(a.canPlayType('audio/mpeg'));
@@ -251,6 +246,12 @@
   
   Popcorn.soundcloud = function( containerId, options ) {
     return new Popcorn.soundcloud.init( containerId, options );
+  };
+  
+  Popcorn.soundcloud.types = {
+    flash: 0,
+    html5: 1,
+    bestFit: 2
   };
   
   // A constructor, but we need to wrap it to allow for "static" functions
