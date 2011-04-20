@@ -4,7 +4,8 @@ function testAPI( format ) {
   test( "API - " + format, function () {
     var expects = 0,
         count = 0,
-        player = Popcorn.soundcloud( "player_1", {
+        player = Popcorn.soundcloud({
+          target: "player_1",
           src: "http://soundcloud.com/forss/flickermood",
           type: Popcorn.soundcloud.types[format]
         }),
@@ -105,14 +106,16 @@ function defaultAttrFunc( format ) {
     expect( expects );
     stop( 10000 );
     
-    playerDefault = Popcorn.soundcloud( "player_2", {
+    playerDefault = Popcorn.soundcloud({
+      target: "player_2",
       src: "http://soundcloud.com/forss/flickermood",
       type: Popcorn.soundcloud.types[format]
     });
-    playerOverride = Popcorn.soundcloud( "player_2", {
+    playerOverride = Popcorn.soundcloud({
+      target: "player_2",
+      src: "http://soundcloud.com/forss/journeyman",
       height: "100px",
       width: '90%',
-      src: "http://soundcloud.com/forss/journeyman",
       type: Popcorn.soundcloud.types[format]
     });
     
@@ -150,7 +153,8 @@ function testVolume( format ) {
   test( "Player Volume Control - " + format, function () {
     var expects = 3,
         count = 0,
-        player = Popcorn.soundcloud( "player_1", {
+        player = Popcorn.soundcloud({
+          target: "player_1",
           src: "http://soundcloud.com/forss/flickermood",
           type: Popcorn.soundcloud.types[format]
         }),
@@ -199,18 +203,21 @@ function testComments( format ) {
         cmtDate = new Date(),
         comment,
         players = {
-          player1: Popcorn.soundcloud( "player_1", {
+          player1: Popcorn.soundcloud({
+            target: "player_1",
             src: "http://soundcloud.com/forss/flickermood",
             type: Popcorn.soundcloud.types[format]
           }),
-          player2: Popcorn.soundcloud( "player_2", {
+          player2: Popcorn.soundcloud({
+            target: "player_2",
             src: "http://soundcloud.com/forss/flickermood",
             type: Popcorn.soundcloud.types[format],
             commentformat: function( comment ) {
               return comment.text
             }
           }),
-          player3: Popcorn.soundcloud( "player_1", {
+          player3: Popcorn.soundcloud({
+            target: "player_1",
             src: "http://soundcloud.com/forss/flickermood",
             type: Popcorn.soundcloud.types[format]
           })
@@ -276,7 +283,8 @@ function testPopcorn( format ) {
   test( "Popcorn Integration - " + format, function () {
     var expects = 4,
         count = 0,
-        player = Popcorn.soundcloud( "player_1", {
+        player = Popcorn.soundcloud({
+          target: "player_1",
           src: "http://soundcloud.com/forss/flickermood",
           type: Popcorn.soundcloud.types[format]
         });
@@ -323,7 +331,8 @@ function testEvents( format ) {
   test( "Events and Player Control - " + format, function () {
     var expects = 14,
         count = 0,
-        player = Popcorn.soundcloud( "player_1", {
+        player = Popcorn.soundcloud({
+          target: "player_1",
           src: "http://soundcloud.com/forss/flickermood",
           type: Popcorn.soundcloud.types[format]
         }),
@@ -434,7 +443,6 @@ function testEvents( format ) {
     player.play();
   });
 }
-
 
 testAPI( "html" );
 testAPI( "flash" );

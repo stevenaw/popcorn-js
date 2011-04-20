@@ -52,7 +52,8 @@
           popcorn.mute();
         }, false);
         
-        popcorn = Popcorn( Popcorn.soundcloud( "media_1", {
+        popcorn = Popcorn( Popcorn.soundcloud({
+          target: "media_1",
           src: "http://soundcloud.com/user5675631/johnny-muse-kraken-fall",
           width: "50%",
           type: Popcorn.soundcloud.types.bestFit,
