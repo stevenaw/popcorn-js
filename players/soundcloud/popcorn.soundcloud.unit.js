@@ -4,9 +4,7 @@ function testAPI( format ) {
   test( "API - " + format, function () {
     var expects = 0,
         count = 0,
-        player = Popcorn.soundcloud({
-          target: "player_1",
-          src: "http://soundcloud.com/forss/flickermood",
+        player = Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
           type: Popcorn.soundcloud.types[format]
         }),
         members = {
@@ -67,95 +65,92 @@ function testAPI( format ) {
   });
 }
 
-function defaultAttrFunc( format ) {
-  test( "Default Attribute Functionality - " + format, function () {
-    var expects = 5,
-        count = 0,
-        playerDefault,
-        playerOverride,
-        members = {
-          // HTMLMediaElement members
-          'currentTime' : 0,
-          'readyState' : 0,
-          'duration' : 0,
-          'volume' : 1,
-          'paused' : 1,
-          'ended' : 0,
-          'muted' : false,
-          'playbackRate' : 1,
-          'src' : 'http://soundcloud.com/forss/flickermood',
+var defaultAttrFunc = (function() {
+  var callCount = 0;
+  return function ( format ) {
+    test( "Default Attribute Functionality - " + format, function () {
+      var expects = 5,
+          count = 0,
+          playerDefault,
+          playerOverride,
+          members = {
+            // HTMLMediaElement members
+            'currentTime' : 0,
+            'readyState' : 0,
+            'duration' : 0,
+            'volume' : 1,
+            'paused' : 1,
+            'ended' : 0,
+            'muted' : false,
+            'playbackRate' : 1,
+            'src' : 'http://soundcloud.com/forss/flickermood',
+            
+            // DOMElement members
+            'height' : '81px',
+            'top' : 0,
+            'left' : 0,
+            'offsetHeight' : 81,
+          };
           
-          // DOMElement members
-          'height' : '81px',
-          'top' : 0,
-          'left' : 0,
-          'offsetHeight' : 81,
-        };
+      function plus() {
+        if ( ++count === expects ) {
+          start();
+          cleanup();
+        }
+      }
+      
+      Popcorn.forEach( members, function () {
+        expects++;
+      });
+      
+      expect( expects );
+      stop( 10000 );
+      
+      playerDefault = Popcorn.soundcloud( "player_2", "http://soundcloud.com/forss/flickermood", {
+        type: Popcorn.soundcloud.types[format]
+      });
+      playerOverride = Popcorn.soundcloud( "player_2", "http://soundcloud.com/forss/journeyman", {
+        height: "100px",
+        width: '90%',
+        type: Popcorn.soundcloud.types[format]
+      });
+      
+      playerDefault.addEventListener( "durationchange", function() {
+        equals( playerDefault.duration, 213.89, "Duration updated" );
+        plus();
+      });
+      
+      Popcorn.forEach( members, function ( val, prop ) {
+        var actual = playerDefault[prop];
         
-    function plus() {
-      if ( ++count === expects ) {
-        start();
-        cleanup();
-      }
-    }
-    
-    Popcorn.forEach( members, function () {
-      expects++;
-    });
-    
-    expect( expects );
-    stop( 10000 );
-    
-    playerDefault = Popcorn.soundcloud({
-      target: "player_2",
-      src: "http://soundcloud.com/forss/flickermood",
-      type: Popcorn.soundcloud.types[format]
-    });
-    playerOverride = Popcorn.soundcloud({
-      target: "player_2",
-      src: "http://soundcloud.com/forss/journeyman",
-      height: "100px",
-      width: '90%',
-      type: Popcorn.soundcloud.types[format]
-    });
-    
-    playerDefault.addEventListener( "load", function() {
-      equals( playerDefault.duration, 213.89, "Duration updated" );
+        if ( typeof playerDefault[prop] === 'function' ) {
+          actual = playerDefault[prop]();
+        }
+        
+        equals( actual, val, "player." + prop + " should have default value: '" + val + "'" );
+        plus();
+      });
+      
+      equals( document.getElementById( "player_2" ).children.length, 2*(++callCount), "The container has 2 players" );
+      plus();
+      
+      equals( playerDefault.width, playerDefault.offsetWidth+"px", "Width is stringified version of offsetWidth" );
+      plus();
+      
+      equals( playerOverride.width, "90%", "Width has been overridden" );
+      plus();
+      
+      equals( playerOverride.height, "81px", "Height has been overridden to 100px, but set back again to 81px" );
       plus();
     });
-    
-    Popcorn.forEach( members, function ( val, prop ) {
-      var actual = playerDefault[prop];
-      
-      if ( typeof playerDefault[prop] === 'function' ) {
-        actual = playerDefault[prop]();
-      }
-      
-      equals( actual, val, "player." + prop + " should have default value: '" + val + "'" );
-      plus();
-    });
-    
-    equals( document.getElementById( "player_2" ).children.length, 2, "The container has 2 players" );
-    plus();
-    
-    equals( playerDefault.width, playerDefault.offsetWidth+"px", "Width is stringified version of offsetWidth" );
-    plus();
-    
-    equals( playerOverride.width, "90%", "Width has been overridden" );
-    plus();
-    
-    equals( playerOverride.height, "81px", "Height has been overridden to 100px, but set back again to 81px" );
-    plus();
-  });
-}
+  }
+})();
 
 function testVolume( format ) {
   test( "Player Volume Control - " + format, function () {
     var expects = 3,
         count = 0,
-        player = Popcorn.soundcloud({
-          target: "player_1",
-          src: "http://soundcloud.com/forss/flickermood",
+        player = Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
           type: Popcorn.soundcloud.types[format]
         }),
         targetVolume,
@@ -203,22 +198,19 @@ function testComments( format ) {
         cmtDate = new Date(),
         comment,
         players = {
-          player1: Popcorn.soundcloud({
-            target: "player_1",
-            src: "http://soundcloud.com/forss/flickermood",
+          player1: Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
             type: Popcorn.soundcloud.types[format]
           }),
-          player2: Popcorn.soundcloud({
-            target: "player_2",
-            src: "http://soundcloud.com/forss/flickermood",
+          player2: Popcorn.soundcloud( "player_2", "http://soundcloud.com/forss/flickermood", {
             type: Popcorn.soundcloud.types[format],
-            commentformat: function( comment ) {
-              return comment.text
+            api: {
+              commentdiv: "commentOutput",
+              commentformat: function( comment ) {
+                return comment.text
+              }
             }
           }),
-          player3: Popcorn.soundcloud({
-            target: "player_1",
-            src: "http://soundcloud.com/forss/flickermood",
+          player3: Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
             type: Popcorn.soundcloud.types[format]
           })
         }
@@ -283,9 +275,7 @@ function testPopcorn( format ) {
   test( "Popcorn Integration - " + format, function () {
     var expects = 4,
         count = 0,
-        player = Popcorn.soundcloud({
-          target: "player_1",
-          src: "http://soundcloud.com/forss/flickermood",
+        player = Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
           type: Popcorn.soundcloud.types[format]
         });
         
@@ -331,9 +321,7 @@ function testEvents( format ) {
   test( "Events and Player Control - " + format, function () {
     var expects = 14,
         count = 0,
-        player = Popcorn.soundcloud({
-          target: "player_1",
-          src: "http://soundcloud.com/forss/flickermood",
+        player = Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
           type: Popcorn.soundcloud.types[format]
         }),
         targetVolume;
@@ -444,20 +432,20 @@ function testEvents( format ) {
   });
 }
 
-testAPI( "html" );
 testAPI( "flash" );
+testAPI( "html" );
 
-defaultAttrFunc( "html" );
 defaultAttrFunc( "flash" );
+defaultAttrFunc( "html" );
 
-testVolume( "html" );
 testVolume( "flash" );
+testVolume( "html" );
 
-testComments( "html" );
 testComments( "flash" );
+testComments( "html" );
 
-testPopcorn( "html" );
 testPopcorn( "flash" );
+testPopcorn( "html" );
 
-testEvents( "html" );
 testEvents( "flash" );
+testEvents( "html" );

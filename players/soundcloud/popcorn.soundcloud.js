@@ -12,42 +12,37 @@
   *    <div id="player_1" style="width: 500px; height: 81px"></div>
   *    <script type="text/javascript">
   *      document.addEventListener("DOMContentLoaded", function() {
-  *        var popcorn = Popcorn( Popcorn.soundcloud({
-  *            target: "player_1",                               // Required
-  *            src: "http://soundcloud.com/forss/flickermood",   // Required
-  *          }));
+  *        var popcorn = Popcorn( Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood" ));
   *      }, false);
   *    </script>
   *
-  *  2. Width and height may also be configured directly with the player. This will override any CSS.
+  *  2. Width and height may also be configured directly with the player; this will override any CSS. This is useful for
+  *     when different sizes are desired. for multiple players within the same parent container.
   *
   *     <div id="player_1"></div>
   *     <script type="text/javascript">
   *       document.addEventListener("DOMContentLoaded", function() {
-  *       var popcorn = Popcorn( Popcorn.soundcloud({
-  *         target: "player_1",                               // Required
-  *         src: "http://soundcloud.com/forss/flickermood",   // Required
-  *         width: "500",                                     // Optional
-  *         height: "81"                                      // Optional
+  *       var popcorn = Popcorn( Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
+  *         width: "500",                                     // Optional, will default to CSS values
+  *         height: "81"                                      // Optional, will default to CSS values
   *       }));
   *       }, false);
   *     </script>
   *
   * The player can be further configured to integrate with the SoundCloud API:
   *
-  * var popcorn = Popcorn( Popcorn.soundcloud( "player_1", {
-  *   target: "player_1",                               // Required, the location to place the player
-  *   src: "http://soundcloud.com/forss/flickermood",   // Required, the Soundcloud track to play
+  * var popcorn = Popcorn( Popcorn.soundcloud( "player_1", "http://soundcloud.com/forss/flickermood", {
   *   width: "100%",                                    // Optional, the width for the player. May also be as '##px'
   *                                                     //           Defaults to the maximum possible width
   *   height: "81px",                                   // Optional, the height for the player. May also be as '###%'
   *                                                     //           Defaults to 81px
-  *   type: Popcorn.soundcloud.types.html               // Optional, the type of player to return ( html | flash | bestFit )
-  *                                                     //           Defaults to Popcorn.soundcloud.types.bestFit
-  *   api_key: "abcdefsdfsdf",                          // Optional, the Soundcloud API key, required for retrieving comments
-  *   commentdiv: "divId_for_output",                   // Optional, the Div Id for outputting comments
-  *   commentformat: function( comment ) {}             // Optional, a function to format a comment. Returns HTML string
-  *                                                     //           Defaults to formatting similar to Popcorn's Flash player
+  *   type: Popcorn.soundcloud.types.bestFit            // Optional, the type of player to use ( html | flash | bestFit )
+  *                                                     //           Defaults to flash
+  *   api: {                                            // Optional, information for Soundcloud API interaction
+  *     key: "abcdefsdfsdf",                            // Required for API interaction. The Soundcloud API key
+  *     commentdiv: "divId_for_output",                 // Required for comment retrieval, the Div Id for outputting comments.
+  *     commentformat: function( comment ) {}           // Optional, a function to format a comment. Returns HTML string
+  *   }
   * }));
   *
   * Comments are retrieved from Soundcloud when the player is registered with Popcorn by calling the registerWithPopcorn()
@@ -252,7 +247,7 @@
         throw "Could not find that container in the DOM!";
       }
       
-      options.commentformat = options.commentformat || formatComment
+      options.api.commentformat = options.api.commentformat || formatComment
       
       this._mediaId = 0;
       this._listeners = {};
@@ -329,7 +324,7 @@
               object_id: self._playerId,
               url: self.src,
               // Hide comments in player if showing them elsewhere
-              show_comments: !self._options.api_key && !self._options.commentdiv
+              show_comments: !self._options.api.key && !self._options.api.commentdiv
             },
             params = {
               allowscriptaccess: "always",
@@ -376,7 +371,7 @@
             // Resolve a soundcloud url to its info
             Popcorn.getJSONP(
               // Resolver: http://api.soundcloud.com/resolve?url=http://soundcloud.com/forss/flickermood&consumer_key=PRaNFlda6Bhf5utPjUsptg
-              'http://api.soundcloud.com/resolve.js?url='+this.src+'&consumer_key='+this._options.api_key+'&callback=scResolveUrl',
+              'http://api.soundcloud.com/resolve.js?url='+this.src+'&consumer_key='+this._options.api.key+'&callback=scResolveUrl',
               function( data ) {
                 self._mediaId = data.id;
                 self._streamUrl = data.stream_url;
@@ -393,9 +388,10 @@
                   self._resource.appendChild( source );
                 }
                 
-                addSource( self._streamUrl + '?client_id=' + self._options.api_key );
-                addSource( 'http://api.soundcloud.com/tracks/' + self._mediaId + '/download?client_id='+self._options.api_key );
+                addSource( self._streamUrl + '?client_id=' + self._options.api.key );
+                addSource( 'http://api.soundcloud.com/tracks/' + self._mediaId + '/download?client_id='+self._options.api.key );
                 
+                self.dispatchEvent( "durationchange" );
                 self.dispatchEvent( "load" );
                 
                 self.timeupdate();
@@ -424,10 +420,14 @@
     htmlEngine.prototype = getHTMLInterface();
     flashEngine.prototype = getFlashInterface();
     
-    return function( options ) {
+    return function( containerId, src, options ) {
       var types = Popcorn.soundcloud.types;
       
+      options = options || {};
+      options.src = src;
+      options.target = containerId;
       options.type = options.type || types.flash;
+      options.api = options.api || {};
       
       if ( options.type === types.flash ) {
         return new flashEngine( options );
@@ -722,7 +722,7 @@
       // Force loading by playing the player. Pause afterwards
       load: function() {
         this._resource.pause();
-        this._resource.src = this._streamUrl + '?consumer_key=' + this._options.api_key;
+        this._resource.src = this._streamUrl + '?consumer_key=' + this._options.api.key;
         this._resource.load();
         this._resource.play();
       },
@@ -873,7 +873,7 @@
                 avatar: obj.user.avatar || ""
               },
               display: function() {
-                return ( displayFn || self._options.commentformat )( comment );
+                return ( displayFn || self._options.api.commentformat )( comment );
               }
             }
         
@@ -885,7 +885,7 @@
         
         this._popcorn.subtitle({
           start: comment.start,
-          target: this._options.commentdiv,
+          target: this._options.api.commentdiv,
           display: 'inline',
           language: 'en',
           text: comment.display()
@@ -901,11 +901,13 @@
         
         this._popcorn = popcorn;
         
-        if ( this._options && this._options.api_key && this._options.commentdiv ) {
+        var api = this._options.api;
+        
+        if ( api.key && api.commentdiv ) {
           var self = this;
           
           Popcorn.xhr({
-            url: "http://api.soundcloud.com/tracks/" + self._mediaId + "/comments.js?consumer_key=" + self._options.api_key,
+            url: "http://api.soundcloud.com/tracks/" + self._mediaId + "/comments.js?consumer_key=" + api.key,
             success: function( data ) {
               Popcorn.forEach( data.json, function ( obj ) {
                 self.addComment({
