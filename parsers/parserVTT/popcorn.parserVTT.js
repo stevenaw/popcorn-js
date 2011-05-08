@@ -206,7 +206,7 @@
           translate : (function () {
             var map = {
               // Rules for ltr
-              "middle" : "middle",
+              "middle" : "center",
               "start" : "left",
               "end" : "right"
             };
