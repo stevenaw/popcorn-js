@@ -3,6 +3,18 @@
 <head>
   <title>Popcorn 0.3 WebSRT/VTT parser Plug-in Demo</title>
   
+  <style type="text/css">
+    ::cue .custom {
+      color: red;
+      text-transform: uppercase;
+    }
+    
+    .custom {
+      color: red;
+      text-transform: uppercase;
+    }
+  </style>
+  
   <script src="../../popcorn.js"></script>
   <script src="../../plugins/subtitle/popcorn.subtitle.js"></script>
   <script src="popcorn.parserVTT.js"></script>
@@ -23,7 +35,7 @@
   <div>
     <video id='video'
       controls
-      width= '250px'
+      width= '450px'
       data-timeline-sources="data/data.vtt"
       poster="../../test/poster.png"> 
 
