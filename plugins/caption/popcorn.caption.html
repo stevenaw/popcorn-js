@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Popcorn caption Plug-in Demo</title>
+  
+  <style type="text/css">
+    .captionStyle {
+      color: red;
+      background: rgba(0, 255, 0,  0.3);
+      top: 75px;
+      left: 40px;
+    }
+  </style>
+  
+  <script src="../../popcorn.js"></script>
+  <script src="popcorn.caption.js"></script>
+  <script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+      var p = Popcorn( '#video' )
+      .volume(0)
+      .play() 
+      .caption({
+        start: 5, // seconds
+        end: 15, // seconds
+        text: 'this is the first caption of 2011',
+        target: '',
+        className: "",
+        x: 5,
+        y: 10,
+        width: 40,
+        height: 40
+      })
+      .caption({
+        start: 20, // seconds
+        end: 45, // seconds
+        text: 'this is the second caption of 2011',
+        target: '',
+        className: "captionStyle",
+        height: 40
+      });
+    }, false );
+  </script>
+</head>
+<body>
+  <h1 id="qunit-header">Popcorn Caption Plug-in Demo</h1>
+  <p> A caption displaying 'this is the first caption of 2011' will appear at 5 seconds and disappear at 15 seconds in white. It will overflow the width and cascade down.</p>
+  <p> A caption displaying 'this is the second caption of 2011' will appear at 20 seconds and disappear at 45 seconds in red with green background.</p>
+  <div>
+
+    <video id='video' 
+      controls height="480" width="854" style="position: absolute; left: 40px;"
+      poster="../../test/poster.png"> 
+
+      <source id='mp4'
+        src="../../test/trailer.mp4"
+        type='video/mp4; codecs="avc1, mp4a"'> 
+
+      <source id='ogv'
+        src="../../test/trailer.ogv"
+        type='video/ogg; codecs="theora, vorbis"'> 
+
+      <p>Your user agent does not support the HTML5 Video element.</p> 
+
+    </video> 
+  </div>
+</body>
+</html>
