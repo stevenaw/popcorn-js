@@ -205,7 +205,6 @@
           css : "text-align",
           translate : (function () {
             var map = {
-              // Rules for ltr
               "middle" : "center",
               "start" : "left",
               "end" : "right"
@@ -225,7 +224,7 @@
         },
         // Text position (horizontal)
         "T" : {
-          css: "",
+          css: "left",
           translate : function ( val, attr ) {
             return val;
           }
@@ -233,7 +232,7 @@
         // Line position (vertical)
         "L" : {
           // Valid values can be anything in regex except -n%
-          css: "position: absolute; top",
+          css: "top",
           translate : function ( val, attr ) {
             return val;
           }
@@ -251,9 +250,10 @@
         }
       };
       
-      return function ( text, attr ) {
+      return function ( sub, attr ) {
         var styles = {},
-            styleStr = "";
+            styleStr = "",
+            text = sub.text;
             
         // Map defaults to attr
         Popcorn.forEach( defaults, function( value, setting ) {
@@ -277,7 +277,8 @@
         });
         
         // Wrap text with span and styles
-        return '<span style="'+styleStr+'">'+text+'</span>';
+        sub.text = '<span style="'+styleStr+'">'+text+'</span>';
+        return sub;
       }
     })();
     
@@ -323,13 +324,13 @@
         
         if ( settings ) {
           // End of line settings found
-          sub.text = processSettings( sub.text, settings );
+          sub = processSettings( sub, settings );
           
           // GC, also reset for next time through loop
           settings = null;
         }
       
-        subs.push( createTrack( "subtitle", sub ) );
+        subs.push( createTrack( "caption", sub ) );
       } catch ( e ) {
          // Bad cue, advance to end of cue
         while ( i < len && lines[i] ) {
