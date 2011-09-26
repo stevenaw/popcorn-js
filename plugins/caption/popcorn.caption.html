@@ -25,10 +25,12 @@
         text: 'this is the first caption of 2011',
         target: '',
         className: "",
-        x: 5,
-        y: 10,
-        width: 40,
-        height: 40
+        css: {
+          left: 5,
+          top: 10,
+          width: 40,
+          height: 40
+        }
       })
       .caption({
         start: 20, // seconds
@@ -36,7 +38,9 @@
         text: 'this is the second caption of 2011',
         target: '',
         className: "captionStyle",
-        height: 40
+        css: {
+          height: 40
+        }
       });
     }, false );
   </script>

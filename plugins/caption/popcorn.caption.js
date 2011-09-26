@@ -9,11 +9,13 @@
         _target     = options.target ? doc.getElementById( options.target ) : undef,
         divCreated  = 0,
         _className  = options.className || "",
-        _x          = options.x || 0,
-        _y          = options.y || 0,
-        _width      = options.width || ( pos.width - _x ),
-        _height     = options.height,
-        _text       = options.text;
+        _text       = options.text,
+        _css        = options.css || {};
+        
+        _css.top    = _css.top || 0;
+        _css.left   = _css.left || 0;
+        _css.width  = _css.width || 0;
+        _css.height = _css.height || 0;
 
     // No target or invalid id, create parent element to overlay ontop of video
     // Positioning is all done relative to this div
@@ -30,12 +32,12 @@
     }
     
     function overlay( target, pos ) {
-      target.style.maxWidth = ( pos.width - _x ) + "px";
-      target.style.maxHeight = ( pos.height - _y ) + "px";
-      target.style.width = ( _width ) + "px";
-      target.style.height = ( _height ) + "px";
-      target.style.top = ( pos.top + _y ) + "px";
-      target.style.left = ( pos.left + _x ) + "px";
+      target.style.maxWidth = ( pos.width - _css.left ) + "px";
+      target.style.maxHeight = ( pos.height - _css.top ) + "px";
+      target.style.width = ( _css.width ) + "px";
+      target.style.height = ( _css.height ) + "px";
+      target.style.top = ( pos.top + _css.top ) + "px";
+      target.style.left = ( pos.left + _css.left ) + "px";
     }
     
     function posToString( val ) {
@@ -58,10 +60,10 @@
       // Positioning is relative to "target"
       wrapper.style.position = "absolute";
       wrapper.style.display = "none";
-      wrapper.style.left = posToString( _x );
-      wrapper.style.top = posToString( _y );
-      wrapper.style.maxWidth = posToString( _width );
-      wrapper.style.maxHeight = posToString( _height );
+      wrapper.style.left = posToString( _css.left );
+      wrapper.style.top = posToString( _css.top );
+      wrapper.style.maxWidth = posToString( _css.width );
+      wrapper.style.maxHeight = posToString( _css.height );
       wrapper.style.wordWrap = "break-word";
       wrapper.innerHTML = _text;
       
